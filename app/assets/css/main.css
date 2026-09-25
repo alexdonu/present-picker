@@ -36,6 +36,17 @@
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
+    /* Keeps the scrollbar's space reserved, so the page does not jump sideways when scrolling gets locked. */
+    scrollbar-gutter: stable;
+  }
+
+  /*
+   * While a modal dialog is open, the page behind it must not scroll.
+   * Done with :has() instead of a script so the lock can never get stuck: it lasts exactly as long as
+   * an open dialog exists, even if the dialog is closed by Escape or removed from the page.
+   */
+  html:has(dialog[open]) {
+    overflow: hidden;
   }
 
   /* The display font has a single weight; browsers would otherwise fake a bold one. */
@@ -234,6 +245,8 @@
     width: min(34rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     overflow-y: auto;
+    /* Scrolling to the end of a tall dialog must not carry on into the page behind it. */
+    overscroll-behavior: contain;
     padding: 0;
     color: var(--color-ink);
 
