@@ -31,6 +31,20 @@ npm run dev
 
 Pagina invitaților e pe http://localhost:3000, iar administrarea pe http://localhost:3000/admin.
 
+### Testare de pe alte dispozitive (telefon, tabletă)
+
+```bash
+npm run dev:lan
+```
+
+Pornește același server, dar accesibil în rețeaua locală. În terminal apar adresa (`Network: http://192.168.x.x:3000`) și un cod QR: scanează-l cu telefonul. Dispozitivele trebuie să fie în aceeași rețea Wi-Fi.
+
+- Merge pe HTTP simplu: cookie-urile și hot-reload-ul funcționează. Fiindcă nu e HTTPS, browserul nu consideră pagina „secure context”; aplicația nu are nevoie de asta.
+- Adresa Mac-ului se vede și cu `ipconfig getifaddr en0`; pe dispozitivele Apple merge și numele `NumeleMac.local:3000`.
+- Dacă nu se deschide: verifică să fie aceeași rețea (unele routere izolează dispozitivele, mai ales în rețeaua „guest”) și să permiți conexiunile de intrare pentru `node`, dacă macOS întreabă.
+- Oricine e în aceeași rețea poate deschide site-ul, inclusiv `/admin` (protejat cu parola din `.env`). Folosește doar o rețea de încredere, nu una publică.
+- Când folosești o bază de date cu date de test, e aceeași bază ca la `npm run dev` (`data/`).
+
 Baza de date (`present-picker.db`) și pozele încărcate se salvează în folderul `data/` (sau unde indică `NUXT_DATA_DIR`). Baza se creează singură la prima pornire.
 
 ## Date de test

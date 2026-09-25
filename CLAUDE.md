@@ -27,4 +27,4 @@ Nuxt 4 app (Vue 3, Nitro, Tailwind 4) where guests pick housewarming gifts. SQLi
 
 ## Commands
 
-`npm run dev` · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:generate` (after editing `server/db/schema.ts`) · `npm run db:seed` (sample data; add `-- --reset` to wipe first) · `npm run db:clean` (empty the database)
+`npm run dev` · `npm run dev:lan` (reachable from other devices on the LAN, prints a QR code) · `npm run build` · `npm start` · `npm run typecheck` · `npm run db:generate` (after editing `server/db/schema.ts`) · `npm run db:seed` (sample data; add `-- --reset` to wipe first) · `npm run db:clean` (empty the database)
