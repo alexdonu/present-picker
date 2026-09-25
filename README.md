@@ -33,6 +33,28 @@ Pagina invitaților e pe http://localhost:3000, iar administrarea pe http://loca
 
 Baza de date (`present-picker.db`) și pozele încărcate se salvează în folderul `data/` (sau unde indică `NUXT_DATA_DIR`). Baza se creează singură la prima pornire.
 
+## Date de test
+
+Ca să încerci aplicația cu conținut, fără să adaugi nimic de mână:
+
+```bash
+npm run db:seed              # adaugă 10 produse, 8 alegeri de la 6 invitați și 3 poze generate
+npm run db:seed -- --reset   # șterge TOT (produse, alegeri, poze) și seedează din nou
+```
+
+Scriptul folosește aceeași bază de date ca aplicația (`data/` sau `NUXT_DATA_DIR`) și refuză să scrie peste o bază care are deja produse, dacă nu îi dai `--reset`.
+
+Ca să golești baza (produse, alegeri și poze încărcate), fără să adaugi nimic la loc:
+
+```bash
+npm run db:clean             # arată ce se șterge și cere să scrii „delete” pentru confirmare
+npm run db:clean -- --yes    # fără întrebare (pentru scripturi)
+```
+
+Ștergerea nu se poate anula. **Nu rula `db:clean` și nici `db:seed -- --reset` pe baza cu datele reale ale petrecerii** (fă întâi o copie a folderului `data/`).
+
+Alegerile din seed aparțin unor invitați inventați, deci niciuna nu e „a ta”: alege tu câteva cadouri ca să încerci starea „Ales de tine” și anularea.
+
 ## Detaliile petrecerii
 
 Data, adresa, numele gazdelor și contactul se completează în [`app/app.config.ts`](app/app.config.ts). Ce rămâne gol nu se afișează pe pagină.
@@ -61,9 +83,10 @@ server/api/           API-ul (Nitro): public, iar cel de administrare sub /api/a
 server/db/schema.ts   schema bazei de date
 drizzle/              migrările SQL generate
 shared/               validări și tipuri folosite și de front, și de server
+scripts/               `db:seed` (date de test) și `db:clean` (golește baza)
 ```
 
-Comenzi utile: `npm run typecheck`, `npm run db:generate` (după ce schimbi schema).
+Comenzi utile: `npm run typecheck`, `npm run db:generate` (după ce schimbi schema), `npm run db:seed` (date de test), `npm run db:clean` (golește baza).
 
 ## Design
 
