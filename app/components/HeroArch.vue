@@ -1,7 +1,12 @@
 <!-- Decorative arch with a setting sun, and a round stamp pinned to its corner. -->
 <template>
-  <div class="relative self-center pt-7 xl:pt-10">
-    <svg viewBox="0 0 460 600" class="block h-auto w-[300px] sm:w-[360px] xl:w-[460px]" aria-hidden="true" focusable="false">
+  <!--
+    The page lays this out in a grid, where `self-center` would only centre it vertically: `justify-self-center`
+    centres it horizontally (on phones and tablets it sits alone in its row). On very narrow screens the width
+    shrinks to fit instead of overflowing.
+  -->
+  <div class="relative w-[min(300px,100%)] justify-self-center pt-7 sm:w-[360px] xl:w-[460px] xl:pt-10">
+    <svg viewBox="0 0 460 600" class="block h-auto w-full" aria-hidden="true" focusable="false">
       <defs>
         <clipPath id="hero-arch"><path d="M0 600V230A230 230 0 0 1 460 230V600Z" /></clipPath>
       </defs>
@@ -22,7 +27,7 @@
 
     <svg
       viewBox="0 0 190 190"
-      class="absolute left-[-24px] top-0 block w-[124px] rotate-[-14deg] xl:left-[-72px] xl:w-[190px]"
+      class="absolute left-[-2px] top-0 block w-[124px] rotate-[-14deg] min-[360px]:left-[-16px] xl:left-[-72px] xl:w-[190px]"
       aria-hidden="true"
       focusable="false"
     >
