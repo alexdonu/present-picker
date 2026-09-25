@@ -173,6 +173,14 @@ function encodePng(width: number, height: number, paint: (x: number, y: number) 
 }
 
 async function main() {
+  // Sample data in the real database would be the opposite of a clean start. Set NODE_ENV=production in the
+  // server's `.env` (see .env.example) and this script refuses to run there.
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Refusing to seed: NODE_ENV is "production", and sample data must never end up in the real database.')
+    process.exitCode = 1
+    return
+  }
+
   const reset = process.argv.includes('--reset')
   const directory = dataDirectory()
   const uploads = join(directory, 'uploads')

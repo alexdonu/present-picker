@@ -14,7 +14,7 @@ export const databaseFile = (directory: string) => join(directory, 'present-pick
 // Same file-name shape the app gives to uploaded images. Anything else in the folder is left alone.
 const UPLOAD_FILE = /^[a-f0-9]{32}\.(jpg|png|webp|gif)$/
 
-async function uploadedImages(directory: string) {
+export async function uploadedImages(directory: string) {
   try {
     return (await readdir(join(directory, 'uploads'))).filter((file) => UPLOAD_FILE.test(file))
   } catch {

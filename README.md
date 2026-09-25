@@ -92,6 +92,24 @@ npm start
 - Pune în față un reverse proxy cu HTTPS (Caddy, nginx, Cloudflare Tunnel etc.). Cookie-urile devin `Secure` automat când conexiunea este HTTPS.
 - Copia de siguranță înseamnă să salvezi tot folderul `data/`.
 
+## Prima punere în producție, cu baza de date curată
+
+Baza de date pornește **goală** pe orice server nou: `data/` (baza și pozele) și `.env` sunt în `.gitignore`, deci nu ajung niciodată în git, iar la prima pornire aplicația își creează singură tabelele, fără niciun rând. Pași:
+
+1. **Pune codul pe server din git** (`git clone`), nu prin copierea folderului de pe acest calculator. Dacă îl copiezi totuși, **exclude `data/` și `.env`**, altfel duci datele de test cu tine.
+2. **Creează un `.env` nou pe server** (pornește de la `.env.example`): parolă de administrator, cheie secretă și `NODE_ENV=production`. Cu `NODE_ENV=production`, comanda `npm run db:seed` refuză să ruleze, deci datele de test nu pot ajunge din greșeală în baza reală.
+3. `npm ci && npm run build && npm start`.
+4. **Verifică** că e curat:
+
+   ```bash
+   npm run db:status
+   ```
+
+   Trebuie să vezi `products 0`, `guests 0`, `picks 0` și `Clean: there is no data at all.` Pentru scripturi de deploy, `npm run db:status -- --expect-clean` iese cu eroare dacă găsește orice date.
+5. Intră pe `/admin` și adaugă **invitații** (*Invitați*) și **produsele**. Abia apoi trimite linkul prietenilor.
+
+Dacă rulezi producția pe **același calculator** sau într-un folder care are deja date de test, golește baza cu `npm run db:clean` (cere să scrii „delete”) sau pornește aplicația cu alt `NUXT_DATA_DIR`. Înainte de petrecere, fă o copie a folderului `data/`.
+
 ## Structura proiectului
 
 ```
@@ -100,10 +118,10 @@ server/api/           API-ul (Nitro): public, iar cel de administrare sub /api/a
 server/db/schema.ts   schema bazei de date
 drizzle/              migrările SQL generate
 shared/               validări și tipuri folosite și de front, și de server
-scripts/               `db:seed` (date de test) și `db:clean` (golește baza)
+scripts/               `db:seed` (date de test), `db:clean` (golește baza) și `db:status` (arată ce conține)
 ```
 
-Comenzi utile: `npm run typecheck`, `npm run db:generate` (după ce schimbi schema), `npm run db:seed` (date de test), `npm run db:clean` (golește baza).
+Comenzi utile: `npm run typecheck`, `npm run db:generate` (după ce schimbi schema), `npm run db:seed` (date de test), `npm run db:clean` (golește baza), `npm run db:status` (arată ce conține baza).
 
 ## Design
 
