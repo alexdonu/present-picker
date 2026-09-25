@@ -9,6 +9,7 @@ Nuxt 4 app (Vue 3, Nitro, Tailwind 4) where guests pick housewarming gifts. SQLi
 - **Every font must contain `ĂÂÎȘȚ ăâîșț`.** Check with fonttools before adding one (`pip install fonttools brotli`, then read the `cmap` of each woff2 subset). Shrikhand looked right but has no `Ț ț`, and the browser silently substituted another font.
 - The look lives in `app/assets/css/main.css` (theme tokens + component classes such as `.btn`, `.panel`, `.arch`). Fonts are registered in `nuxt.config.ts` (`fonts.families`) and must be kept in sync with `--font-*` in the CSS.
 - Party details (hosts, date, place) come from `app/app.config.ts`; empty values hide their section.
+- Icons: `public/favicon.svg` is the source (the hosts' initials **A** and **L** on the hero arch, drawn as paths so no font is needed). `favicon.ico` (16/32/48 px) and `apple-touch-icon.png` (180 px, the SVG at 72% on the cream paper colour) were rasterised from it and are linked in `nuxt.config.ts`. If the initials change, redraw the SVG and regenerate both files.
 
 ## Behaviour to preserve
 

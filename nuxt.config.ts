@@ -32,6 +32,13 @@ export default defineNuxtConfig({
         { name: 'robots', content: 'noindex, nofollow' },
         { name: 'theme-color', content: '#f3ede3' },
       ],
+      link: [
+        // The initials A and L on the hero arch. Browsers that support SVG use it (sharp at any size and in dark
+        // mode); the .ico (16, 32 and 48 px) is the fallback, and iPhones use the PNG for the home screen.
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/x-icon', sizes: '48x48', href: '/favicon.ico' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+      ],
     },
   },
 

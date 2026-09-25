@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="A și L">
+  <!-- The arch from the hero, in the app's forest green -->
+  <path fill="#22382c" d="M2 56V32a30 30 0 0 1 60 0v24a6 6 0 0 1-6 6H8a6 6 0 0 1-6-6Z"/>
+  <!-- Initials A and L, drawn as shapes so they look the same everywhere (no font needed) -->
+  <path fill="#f3ede3" fill-rule="evenodd" d="M9 56 18.5 27h6L34 56h-6.5l-1.6-5h-8.8l-1.6 5ZM21.5 37.7l2.7 8.3h-5.4Z"/>
+  <path fill="#f3ede3" d="M38 27h6.5v23.5h11V56H38Z"/>
+</svg>
