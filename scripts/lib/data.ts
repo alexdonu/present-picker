@@ -2,7 +2,7 @@ import { readdir, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { sql } from 'drizzle-orm'
 import type { openDatabase } from '../../server/db/connect'
-import { picks, products } from '../../server/db/schema'
+import { guests, picks, products } from '../../server/db/schema'
 
 type Database = ReturnType<typeof openDatabase>
 
@@ -25,18 +25,20 @@ async function uploadedImages(directory: string) {
 export async function countData(db: Database, directory: string) {
   return {
     products: db.select().from(products).all().length,
+    guests: db.select().from(guests).all().length,
     picks: db.select().from(picks).all().length,
     images: (await uploadedImages(directory)).length,
   }
 }
 
-/** Deletes every product, every pick and every uploaded image, and restarts the ids from 1. */
+/** Deletes every product, guest and pick and every uploaded image, and restarts the ids from 1. */
 export async function wipeData(db: Database, directory: string) {
   const counts = await countData(db, directory)
 
   db.delete(picks).run()
+  db.delete(guests).run()
   db.delete(products).run()
-  db.run(sql`DELETE FROM sqlite_sequence WHERE name IN ('products', 'picks')`)
+  db.run(sql`DELETE FROM sqlite_sequence WHERE name IN ('products', 'guests', 'picks')`)
 
   for (const file of await uploadedImages(directory)) {
     await rm(join(directory, 'uploads', file), { force: true })

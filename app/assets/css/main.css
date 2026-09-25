@@ -121,6 +121,31 @@
     }
   }
 
+  /*
+   * Scrolling band (the burgundy strip with the product names). The track holds two identical halves and slides
+   * left by exactly one half, so the loop is seamless. It pauses under the pointer and stands still for people
+   * who asked for less motion.
+   */
+  .marquee {
+    overflow: hidden;
+  }
+
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee-scroll linear infinite;
+  }
+
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+  }
+
   .panel {
     border: 1.5px solid var(--color-ink);
     border-radius: 4px;
@@ -253,5 +278,11 @@
     &::backdrop {
       background-color: rgb(42 26 18 / 0.6);
     }
+  }
+}
+
+@keyframes marquee-scroll {
+  to {
+    transform: translateX(-50%);
   }
 }

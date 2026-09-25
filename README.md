@@ -2,7 +2,8 @@
 
 Aplicația în care prietenii noștri aleg cadouri pentru petrecerea de intrare în casa nouă.
 
-- Invitații văd lista de idei, aleg unul sau mai multe cadouri, același cadou de mai multe ori, sau se combină mai mulți la același cadou. Nu au nevoie de cont: își scriu doar numele.
+- **Noi definim invitații**, iar fiecare invitat își alege numele din listă, o singură dată, la prima deschidere a paginii (cu confirmare). Nu există conturi sau parole: e un grup de prieteni și fiecare are încredere în ceilalți.
+- Invitații văd lista de idei, aleg unul sau mai multe cadouri, același cadou de mai multe ori, sau se combină mai mulți la același cadou. Dacă intră de pe alt telefon sau calculator, își aleg din nou numele și își regăsesc alegerile.
 - Pagina spune, cu litere foarte mari, că **nu este obligatoriu să cumpere nimic** și că cel mai important este să vină.
 - Noi, gazdele, adăugăm produsele (poză, link, preț) și vedem cine ce a ales din `/admin`.
 - Tot ce vede utilizatorul final este în română; codul este în engleză.
@@ -31,6 +32,8 @@ npm run dev
 
 Pagina invitaților e pe http://localhost:3000, iar administrarea pe http://localhost:3000/admin.
 
+**Înainte să trimiți linkul, adaugă invitații** din `/admin` → *Invitați* (un nume pe rând). Până nu există invitați, nimeni nu poate alege cadouri. Un nume poate fi și al unui cuplu sau al unei familii, de exemplu „Ana și Mihai”.
+
 ### Testare de pe alte dispozitive (telefon, tabletă)
 
 ```bash
@@ -52,13 +55,13 @@ Baza de date (`present-picker.db`) și pozele încărcate se salvează în folde
 Ca să încerci aplicația cu conținut, fără să adaugi nimic de mână:
 
 ```bash
-npm run db:seed              # adaugă 10 produse, 8 alegeri de la 6 invitați și 3 poze generate
-npm run db:seed -- --reset   # șterge TOT (produse, alegeri, poze) și seedează din nou
+npm run db:seed              # adaugă 10 produse, 10 invitați, 8 alegeri și 3 poze generate
+npm run db:seed -- --reset   # șterge TOT (produse, invitați, alegeri, poze) și seedează din nou
 ```
 
 Scriptul folosește aceeași bază de date ca aplicația (`data/` sau `NUXT_DATA_DIR`) și refuză să scrie peste o bază care are deja produse, dacă nu îi dai `--reset`.
 
-Ca să golești baza (produse, alegeri și poze încărcate), fără să adaugi nimic la loc:
+Ca să golești baza (produse, invitați, alegeri și poze încărcate), fără să adaugi nimic la loc:
 
 ```bash
 npm run db:clean             # arată ce se șterge și cere să scrii „delete” pentru confirmare
@@ -67,7 +70,7 @@ npm run db:clean -- --yes    # fără întrebare (pentru scripturi)
 
 Ștergerea nu se poate anula. **Nu rula `db:clean` și nici `db:seed -- --reset` pe baza cu datele reale ale petrecerii** (fă întâi o copie a folderului `data/`).
 
-Alegerile din seed aparțin unor invitați inventați, deci niciuna nu e „a ta”: alege tu câteva cadouri ca să încerci starea „Ales de tine” și anularea.
+Invitații din seed sunt inventați. La prima deschidere a paginii alege oricare dintre ei ca să-i vezi alegerile ca fiind ale tale („Ales de tine”, anulare), sau alege unul fără alegeri (ultimii patru) ca să încerci de la zero. Pentru a-ți schimba identitatea în timpul testelor apasă „Nu ești tu?”.
 
 ## Detaliile petrecerii
 

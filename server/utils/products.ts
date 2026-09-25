@@ -1,15 +1,27 @@
-import { asc } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import type { PublicPick, PublicProduct } from '#shared/types/product'
-import { picks, products } from '../db/schema'
+import { guests, picks, products } from '../db/schema'
 
 /**
  * Every product with the picks made on it, in a shape that is safe to send to browsers.
- * `viewerToken` is the visitor's guest token, used only to flag their own picks; tokens themselves never leave the server.
+ * `viewerGuestId` is the guest the visitor chose to be; it only serves to flag their own picks (`mine`).
  */
-export function loadProducts(viewerToken?: string): PublicProduct[] {
+export function loadProducts(viewerGuestId?: number): PublicProduct[] {
   const db = useDb()
   const allProducts = db.select().from(products).orderBy(asc(products.createdAt), asc(products.id)).all()
-  const allPicks = db.select().from(picks).orderBy(asc(picks.createdAt), asc(picks.id)).all()
+  const allPicks = db
+    .select({
+      id: picks.id,
+      productId: picks.productId,
+      guestId: picks.guestId,
+      guestName: guests.name,
+      quantity: picks.quantity,
+      note: picks.note,
+    })
+    .from(picks)
+    .innerJoin(guests, eq(guests.id, picks.guestId))
+    .orderBy(asc(picks.createdAt), asc(picks.id))
+    .all()
 
   const picksByProduct = new Map<number, PublicPick[]>()
   for (const pick of allPicks) {
@@ -19,7 +31,7 @@ export function loadProducts(viewerToken?: string): PublicProduct[] {
       guestName: pick.guestName,
       quantity: pick.quantity,
       note: pick.note,
-      mine: viewerToken !== undefined && pick.ownerToken === viewerToken,
+      mine: viewerGuestId !== undefined && pick.guestId === viewerGuestId,
     })
     picksByProduct.set(pick.productId, list)
   }

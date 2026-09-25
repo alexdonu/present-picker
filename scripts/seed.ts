@@ -1,19 +1,19 @@
 /**
- * Fills the database with sample products and picks, for testing the app by hand.
+ * Fills the database with sample products, guests and picks, for testing the app by hand.
  *
  *   npm run db:seed              seeds an empty database (refuses to touch one that already has products)
  *   npm run db:seed -- --reset   first deletes ALL products, picks and uploaded product images
  *
  * It uses the same database as the app: `./data`, or `NUXT_DATA_DIR` (also read from `.env`).
- * The seeded picks belong to made-up guests, so none of them is "yours" in your browser: pick a few
- * gifts yourself to try the "Ales de tine" state and cancelling.
+ * In the app, choose one of the seeded guests as "who you are" to see their picks as yours ("Ales de tine")
+ * and to try cancelling; choose a guest without picks to try picking from scratch.
  */
 import { randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
 import { openDatabase } from '../server/db/connect'
-import { picks, products } from '../server/db/schema'
+import { guests, picks, products } from '../server/db/schema'
 import { databaseFile, dataDirectory, wipeData } from './lib/data'
 
 type Rgb = [number, number, number]
@@ -35,7 +35,21 @@ interface SeedProduct {
   picks?: SeedPick[]
 }
 
-// The guests deliberately have Romanian diacritics in their names, to test how they are displayed.
+// The names deliberately have Romanian diacritics, to test how they are displayed and searched.
+// The last four have no picks, and the last one stands for a couple.
+const GUESTS = [
+  'Ana Țugulea',
+  'Mihai Ștefan',
+  'Ioana Popescu',
+  'Andrei Ionescu',
+  'Cristina Vasilescu',
+  'Dan Șerban',
+  'Elena Rusu',
+  'Vlad Munteanu',
+  'Ștefania Toma',
+  'Radu și Miruna Pop',
+]
+
 const PRODUCTS: SeedProduct[] = [
   {
     name: 'Pick-up pentru viniluri',
@@ -166,10 +180,11 @@ async function main() {
 
   console.log(`Database: ${databaseFile(directory)}`)
 
-  const existing = db.select().from(products).all()
-  if (existing.length > 0 && !reset) {
+  const existingProducts = db.select().from(products).all().length
+  const existingGuests = db.select().from(guests).all().length
+  if ((existingProducts > 0 || existingGuests > 0) && !reset) {
     console.error(
-      `\nThe database already has ${existing.length} product(s), so nothing was changed.\n` +
+      `\nThe database already has ${existingProducts} product(s) and ${existingGuests} guest(s), so nothing was changed.\n` +
         'Run "npm run db:seed -- --reset" to delete everything and seed again.',
     )
     process.exitCode = 1
@@ -178,7 +193,9 @@ async function main() {
 
   if (reset) {
     const removed = await wipeData(db, directory)
-    console.log(`Reset: deleted ${removed.products} product(s), ${removed.picks} pick(s) and ${removed.images} image(s).`)
+    console.log(
+      `Reset: deleted ${removed.products} product(s), ${removed.guests} guest(s), ${removed.picks} pick(s) and ${removed.images} image(s).`,
+    )
   }
 
   await mkdir(uploads, { recursive: true })
@@ -195,11 +212,9 @@ async function main() {
     return path
   }
 
-  // Like real visitors, a guest keeps the same token for all their picks (and nobody here is *you*).
-  const guestTokens = new Map<string, string>()
-  const tokenFor = (guest: string) => {
-    if (!guestTokens.has(guest)) guestTokens.set(guest, randomBytes(24).toString('hex'))
-    return guestTokens.get(guest)!
+  const guestIds = new Map<string, number>()
+  for (const name of GUESTS) {
+    guestIds.set(name, db.insert(guests).values({ name }).returning({ id: guests.id }).get().id)
   }
 
   let pickCount = 0
@@ -220,17 +235,16 @@ async function main() {
       db.insert(picks)
         .values({
           productId: created.id,
-          guestName: pick.guest,
+          guestId: guestIds.get(pick.guest)!,
           quantity: pick.quantity ?? 1,
           note: pick.note ?? null,
-          ownerToken: tokenFor(pick.guest),
         })
         .run()
       pickCount++
     }
   }
 
-  console.log(`Seeded ${PRODUCTS.length} products, ${pickCount} picks from ${guestTokens.size} guests and ${images.size} pictures.`)
+  console.log(`Seeded ${PRODUCTS.length} products, ${GUESTS.length} guests, ${pickCount} picks and ${images.size} pictures.`)
   console.log('Start the app with "npm run dev" (no restart needed if it is already running).')
 }
 

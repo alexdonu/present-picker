@@ -9,7 +9,9 @@ async function logout() {
   <div class="flex min-h-dvh flex-col">
     <nav class="mono-label flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-ink px-5 py-3 sm:px-12 sm:py-4 sm:text-[13px] xl:px-20">
       <NuxtLink to="/admin" class="flex min-h-9 items-center">Administrare · Catalog de casă nouă</NuxtLink>
-      <div class="flex items-center gap-5 sm:gap-8">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 sm:gap-x-8">
+        <NuxtLink to="/admin" class="flex min-h-9 items-center" active-class="underline underline-offset-4" exact-active-class="underline underline-offset-4">Produse</NuxtLink>
+        <NuxtLink to="/admin/guests" class="flex min-h-9 items-center" active-class="underline underline-offset-4">Invitați</NuxtLink>
         <NuxtLink to="/" class="flex min-h-9 items-center">Pagina invitaților</NuxtLink>
         <button type="button" class="mono-label flex min-h-9 cursor-pointer items-center underline underline-offset-4 hover:text-burgundy" @click="logout">Deconectare</button>
       </div>

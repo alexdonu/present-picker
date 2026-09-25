@@ -24,11 +24,6 @@ const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (typeof value === 'string' && value.trim() === '' ? undefined : value), schema.optional())
 
 export const pickSchema = z.object({
-  name: z
-    .string({ error: 'Scrie-ți numele.' })
-    .trim()
-    .min(1, 'Scrie-ți numele.')
-    .max(60, 'Numele este prea lung (maxim 60 de caractere).'),
   quantity: z
     .number({ error: 'Alege câte bucăți.' })
     .int('Alege câte bucăți.')
@@ -65,3 +60,16 @@ export const productSchema = z.object({
 })
 
 export type ProductInput = z.infer<typeof productSchema>
+
+/** Who the visitor says they are: the id of someone on the guest list. */
+export const identitySchema = z.object({
+  guestId: z.number({ error: 'Alege cine ești.' }).int('Alege cine ești.').positive('Alege cine ești.'),
+})
+
+export const guestNameSchema = z
+  .string({ error: 'Scrie numele invitatului.' })
+  .trim()
+  .min(1, 'Scrie numele invitatului.')
+  .max(60, 'Numele este prea lung (maxim 60 de caractere).')
+
+export const MAX_GUESTS_PER_BATCH = 200

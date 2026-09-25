@@ -1,29 +1,38 @@
-import { randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
+import { eq } from 'drizzle-orm'
+import type { Guest } from '#shared/types/guest'
+import { guests } from '../db/schema'
 
 const COOKIE = 'pp_guest'
-const TOKEN_FORMAT = /^[a-f0-9]{48}$/
 
 /**
- * Guests have no accounts. Instead, each browser gets a random token in a cookie, and the picks it makes
- * are tied to it: that is what lets a guest cancel their own picks (and only theirs) later.
+ * Visitors say who they are by choosing a name from the guest list; the choice is remembered in a cookie.
+ * There is deliberately no password: it is a group of friends, and anyone may choose anyone (which is also how
+ * someone picks their own name again on a second device). The cookie only holds the guest's id.
  */
-export function getGuestToken(event: H3Event) {
-  const token = getCookie(event, COOKIE)
-  return token && TOKEN_FORMAT.test(token) ? token : undefined
+export function rememberGuest(event: H3Event, guest: Guest) {
+  setCookie(event, COOKIE, String(guest.id), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isHttps(event),
+    path: '/',
+    maxAge: 60 * 60 * 24 * 180,
+  })
 }
 
-export function ensureGuestToken(event: H3Event) {
-  let token = getGuestToken(event)
-  if (!token) {
-    token = randomBytes(24).toString('hex')
-    setCookie(event, COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isHttps(event),
-      path: '/',
-      maxAge: 60 * 60 * 24 * 180,
-    })
-  }
-  return token
+export function forgetGuest(event: H3Event) {
+  deleteCookie(event, COOKIE, { path: '/' })
+}
+
+/** The guest this browser chose to be, or undefined if none was chosen or they were removed from the list. */
+export function getCurrentGuest(event: H3Event): Guest | undefined {
+  const value = getCookie(event, COOKIE)
+  if (!value || !/^\d{1,9}$/.test(value)) return undefined
+  return useDb().select({ id: guests.id, name: guests.name }).from(guests).where(eq(guests.id, Number(value))).get()
+}
+
+export function requireCurrentGuest(event: H3Event) {
+  const guest = getCurrentGuest(event)
+  if (!guest) throw createError({ statusCode: 401, message: 'Alege mai întâi cine ești din lista de invitați.' })
+  return guest
 }

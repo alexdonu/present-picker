@@ -1,15 +1,20 @@
 <script setup lang="ts">
+import type { Guest } from '#shared/types/guest'
 import type { PublicProduct } from '#shared/types/product'
 
 const { event } = useAppConfig()
-const { data: products, refresh, error } = await useFetch<PublicProduct[]>('/api/products')
+const { data: products, refresh: refreshProducts, error } = await useFetch<PublicProduct[]>('/api/products')
+const { data: me, refresh: refreshMe } = await useFetch<{ guest: Guest | null }>('/api/me')
+
+/** Who this browser chose to be. Remembered by the server (cookie), so it is asked only once. */
+const guest = computed(() => me.value?.guest ?? undefined)
 
 /** Backgrounds for the arch frames, cycled so neighbouring cards differ. */
 const TINTS = ['bg-tint-sand', 'bg-tint-blush', 'bg-tint-sage', 'bg-tint-linen']
 
 const STEPS = [
-  'Răsfoiești lista de idei. Sunt doar sugestii.',
-  'Apeși „Îl aleg eu”. Poți alege mai multe cadouri, același cadou de mai multe ori sau te poți combina cu alți prieteni.',
+  'Îți alegi numele din lista invitaților, o singură dată.',
+  'Apeși „Îl aleg eu” la ce ți se potrivește. Poți alege mai multe cadouri, același cadou de mai multe ori sau te poți combina cu alți prieteni.',
   'Și, mai ales, vii la petrecere. Asta contează cel mai mult.',
 ]
 
@@ -23,11 +28,19 @@ const details = [
 const total = computed(() => products.value?.length ?? 0)
 const withPicks = computed(() => products.value?.filter((product) => product.picks.length).length ?? 0)
 const mineCount = computed(() => products.value?.filter((product) => product.picks.some((pick) => pick.mine)).length ?? 0)
+// Each half of the scrolling band must be wider than any screen, or a gap would show while it loops.
+const MARQUEE_MIN_CHARS = 420
+// Seconds per character: about 45 px per second, slow enough to read.
+const MARQUEE_SECONDS_PER_CHAR = 0.24
 const marquee = computed(() => {
   const names = (products.value ?? []).map((product) => product.name)
-  return [...names, ...names].join(' · ')
+  if (!names.length) return undefined
+  const unit = `${names.join(' · ')} · `
+  const text = unit.repeat(Math.ceil(MARQUEE_MIN_CHARS / unit.length))
+  return { text, duration: Math.round(text.length * MARQUEE_SECONDS_PER_CHAR) }
 })
 
+const identityDialog = useTemplateRef('identityDialog')
 const pickDialog = useTemplateRef('pickDialog')
 const flash = ref('')
 let flashTimer: ReturnType<typeof setTimeout> | undefined
@@ -38,9 +51,42 @@ function showFlash(message: string) {
   flashTimer = setTimeout(() => (flash.value = ''), 8000)
 }
 
-async function onPicked({ name, product }: { name: string; product: PublicProduct }) {
-  showFlash(`Mulțumim, ${name}! Ai ales „${product.name}”. Ne bucurăm oricum că vii!`)
-  await refresh()
+/** A gift the visitor clicked before saying who they are: it opens as soon as they have chosen a name. */
+let pendingProduct: PublicProduct | undefined
+
+function startPick(product: PublicProduct) {
+  if (guest.value) {
+    pickDialog.value?.open(product)
+  } else {
+    pendingProduct = product
+    identityDialog.value?.open()
+  }
+}
+
+function changeIdentityFor(product: PublicProduct) {
+  pendingProduct = product
+  identityDialog.value?.open()
+}
+
+async function onIdentityChosen(chosen: Guest) {
+  const product = pendingProduct
+  pendingProduct = undefined
+  // The list shows "Ales de tine" from the server's point of view, so reload it for the new identity.
+  await Promise.all([refreshMe(), refreshProducts()])
+
+  const fresh = product && products.value?.find((candidate) => candidate.id === product.id)
+  if (fresh) pickDialog.value?.open(fresh)
+  else showFlash(`Salut, ${chosen.name}! Acum poți alege cadouri.`)
+}
+
+async function onPicked(product: PublicProduct) {
+  showFlash(`Mulțumim, ${guest.value?.name}! Ai ales „${product.name}”. Ne bucurăm oricum că vii!`)
+  await refreshProducts()
+}
+
+async function onCancelled(product: PublicProduct) {
+  showFlash(`Alegerea pentru „${product.name}” a fost anulată.`)
+  await refreshProducts()
 }
 
 async function cancelPick(pickId: number) {
@@ -51,8 +97,28 @@ async function cancelPick(pickId: number) {
   } catch (e) {
     showFlash(errorMessage(e))
   }
-  await refresh()
+  await refreshProducts()
 }
+
+// The very first time this browser opens the app, ask who the visitor is. It is only offered once
+// (even if they dismiss it: they can still choose from the page or when picking a gift), and never
+// again once a name is chosen.
+const PROMPTED_KEY = 'present-picker:identity-prompted'
+onMounted(async () => {
+  if (guest.value) return
+  try {
+    if (localStorage.getItem(PROMPTED_KEY)) return
+  } catch {
+    // Storage can be unavailable (private mode): the prompt will simply come back on the next visit.
+  }
+  if (await identityDialog.value?.open({ firstVisit: true })) {
+    try {
+      localStorage.setItem(PROMPTED_KEY, '1')
+    } catch {
+      // Ignore, see above.
+    }
+  }
+})
 
 onBeforeUnmount(() => clearTimeout(flashTimer))
 </script>
@@ -60,10 +126,10 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
 <template>
   <main>
     <!-- Nr. 01 — announcement -->
-    <header class="mx-auto grid max-w-[1440px] gap-6 px-5 pb-12 pt-9 sm:px-12 sm:pb-20 sm:pt-16 lg:grid-cols-[1fr_auto] lg:grid-rows-[1fr_auto] lg:gap-x-16 xl:px-20">
+    <header class="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)] gap-6 px-5 pb-12 pt-9 sm:px-12 sm:pb-20 sm:pt-16 lg:grid-cols-[1fr_auto] lg:grid-rows-[1fr_auto] lg:gap-x-16 xl:px-20">
       <div class="flex flex-col gap-6 sm:gap-8 lg:col-start-1 lg:row-start-1">
         <p class="eyebrow">Nr. 01 — Anunț</p>
-        <h1 class="text-[104px] leading-[0.84] tracking-[-0.035em] sm:text-[150px] xl:text-[200px]">
+        <h1 class="text-[88px] leading-[0.84] tracking-[-0.035em] min-[360px]:text-[104px] sm:text-[150px] xl:text-[200px]">
           Ne-am<br /><em class="pl-14 sm:pl-24 xl:pl-[120px]">mutat.</em>
         </h1>
         <p class="max-w-[520px] text-[17px] leading-[1.6] sm:text-xl">
@@ -92,8 +158,12 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
 
     <NoObligationStatement />
 
-    <div v-if="marquee" class="mono-label overflow-hidden whitespace-nowrap bg-burgundy py-3.5 text-xs tracking-[0.2em] text-paper sm:py-4 sm:text-sm" aria-hidden="true">
-      {{ marquee }}
+    <!-- Decorative: it repeats the names of the gifts listed below, so it is hidden from screen readers. -->
+    <div v-if="marquee" class="marquee mono-label bg-burgundy py-3.5 text-xs tracking-[0.2em] text-paper sm:py-4 sm:text-sm" aria-hidden="true">
+      <div class="marquee-track whitespace-pre" :style="{ animationDuration: `${marquee.duration}s` }">
+        <span class="flex-none">{{ marquee.text }}</span>
+        <span class="flex-none">{{ marquee.text }}</span>
+      </div>
     </div>
 
     <!-- Nr. 02 — the catalog -->
@@ -110,6 +180,13 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
           <p v-if="mineCount" class="font-display text-[22px] italic text-forest sm:text-2xl">
             Mulțumim — ai ales {{ mineCount === 1 ? 'un cadou' : `${mineCount} cadouri` }}.
           </p>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end">
+            <template v-if="guest">
+              <p class="mono-label sm:text-[13px]">Alegi ca: <strong>{{ guest.name }}</strong></p>
+              <button type="button" class="text-link" @click="identityDialog?.open()">Nu ești tu?</button>
+            </template>
+            <button v-else type="button" class="btn btn-small" @click="identityDialog?.open()">Alege-ți numele</button>
+          </div>
         </div>
       </div>
 
@@ -122,7 +199,7 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
           :product="product"
           :number="index + 1"
           :tint="TINTS[index % TINTS.length]!"
-          @pick="pickDialog?.open($event)"
+          @pick="startPick"
           @cancel="cancelPick"
         />
       </div>
@@ -158,7 +235,15 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
       </div>
     </footer>
 
-    <PickDialog ref="pickDialog" @picked="onPicked" />
+    <IdentityDialog ref="identityDialog" :current="guest" @chosen="onIdentityChosen" @closed="pendingProduct = undefined" />
+    <PickDialog
+      ref="pickDialog"
+      :guest="guest"
+      :products="products ?? []"
+      @picked="onPicked"
+      @cancelled="onCancelled"
+      @switch="changeIdentityFor"
+    />
 
     <Transition name="flash">
       <p
