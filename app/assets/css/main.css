@@ -1,0 +1,244 @@
+@import 'tailwindcss';
+
+/*
+ * THE LOOK OF THE APP LIVES HERE.
+ * Editorial "home catalog" with a 70s/80s warmth: cream paper, chocolate ink, burgundy, forest green and mustard,
+ * arch-shaped picture frames, wallpaper stripes and a checkerboard edge. It follows the Catalog design mockups.
+ * To re-skin the app, change the tokens below and the component classes further down; pages only use these names.
+ */
+@theme {
+  --color-paper: #f3ede3;
+  --color-panel: #faf6ee;
+  --color-highlight: #ede6da;
+  --color-ink: #2a1a12;
+  --color-ink-muted: #5a4034;
+  --color-ink-soft: #6b4a38;
+  --color-burgundy: #7b2226;
+  --color-forest: #22382c;
+  --color-wallpaper: #5b341c;
+  --color-mustard: #e2b13c;
+  --color-sun: #d9532b;
+  --color-rule: #d8cdbb;
+  --color-tint-sand: #ebd6a8;
+  --color-tint-blush: #ebcfc0;
+  --color-tint-sage: #d5d8c3;
+  --color-tint-linen: #e6dccb;
+
+  /* Keep in sync with `fonts.families` in nuxt.config.ts (that is what downloads and self-hosts them). */
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* The display font has a single weight; browsers would otherwise fake a bold one. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  ::selection {
+    background-color: var(--color-mustard);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-sun);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Small uppercase monospace label, e.g. "Nr. 02 — Catalogul". */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-burgundy);
+
+    @media (min-width: 640px) {
+      font-size: 0.8125rem;
+    }
+  }
+
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Picture frame with a rounded top, like an arched window. */
+  .arch {
+    aspect-ratio: 10 / 11;
+    border-radius: 50% 50% 4px 4px / 45.5% 45.5% 4px 4px;
+  }
+
+  .ruled {
+    background-image: repeating-linear-gradient(90deg, rgb(42 26 18 / 0.07) 0 1px, transparent 1px 14px);
+  }
+
+  .wallpaper {
+    background-color: var(--color-wallpaper);
+    background-image: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 16px);
+  }
+
+  .checker {
+    height: 10px;
+    background-image: repeating-conic-gradient(var(--color-burgundy) 0% 25%, var(--color-paper) 0% 50%);
+    background-size: 20px 20px;
+
+    @media (min-width: 640px) {
+      height: 14px;
+      background-size: 28px 28px;
+    }
+  }
+
+  .panel {
+    border: 1.5px solid var(--color-ink);
+    border-radius: 4px;
+    background-color: var(--color-panel);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.15rem;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 9999px;
+    background-color: transparent;
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 120ms,
+      border-color 120ms,
+      color 120ms;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-ink);
+      color: var(--color-paper);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-primary {
+    border-color: var(--color-forest);
+    background-color: var(--color-forest);
+    color: var(--color-paper);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-ink);
+    }
+  }
+
+  .btn-danger {
+    border-color: var(--color-burgundy);
+    color: var(--color-burgundy);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-burgundy);
+      background-color: var(--color-burgundy);
+    }
+  }
+
+  .btn-small {
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  /* Round button holding a single symbol, big enough to tap comfortably. */
+  .btn-icon {
+    width: 2.75rem;
+    padding: 0;
+    font-size: 1.5rem;
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-bottom: 2px solid var(--color-ink);
+    border-radius: 4px 4px 0 0;
+    background-color: var(--color-highlight);
+    padding: 0.7rem 0.9rem;
+    color: var(--color-ink);
+
+    &::placeholder {
+      color: var(--color-ink-soft);
+      opacity: 0.7;
+    }
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+  }
+
+  .text-link {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    &:hover {
+      color: var(--color-burgundy);
+    }
+  }
+
+  .notice-error {
+    border: 1.5px solid var(--color-burgundy);
+    border-radius: 4px;
+    background-color: rgb(123 34 38 / 0.08);
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    color: var(--color-burgundy);
+  }
+
+  dialog.dialog {
+    margin: auto;
+    width: min(34rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: 0;
+    color: var(--color-ink);
+
+    &::backdrop {
+      background-color: rgb(42 26 18 / 0.6);
+    }
+  }
+}
