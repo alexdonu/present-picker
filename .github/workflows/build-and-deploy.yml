@@ -6,7 +6,7 @@ on:
 
 # Typecheck is NOT run here — run `npm run typecheck` locally before every commit.
 #
-# Once the Deploy step is enabled, a push to main reaches production with
+# This workflow builds, publishes AND deploys, so a push to main reaches production with
 # nothing in between. A skipped local check does not surface on a developer's
 # screen; it surfaces as a deployment. Treat skipping one as a bug.
 jobs:
@@ -31,5 +31,5 @@ jobs:
           podman push harbor.nickmessing.com/library/present-picker:${{ github.sha }}
           podman push harbor.nickmessing.com/library/present-picker:latest
 
-      # - name: Deploy
-      #   run: deploy present-picker
+      - name: Deploy
+        run: deploy present-picker
