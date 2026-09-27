@@ -39,7 +39,7 @@ defineProps<{ imageUrl?: string | null }>()
       </defs>
       <circle cx="95" cy="95" r="92" fill="var(--color-paper)" stroke="var(--color-ink)" stroke-width="1.6" />
       <text font-family="var(--font-mono)" font-size="12.5" letter-spacing="4.5" fill="var(--color-ink)">
-        <textPath href="#hero-ring">PETRECERE LA CASA NOASTRĂ NOUĂ · TE VREM ALĂTURI · </textPath>
+        <textPath href="#hero-ring"> HAI LA PETRECERE · TE VREM ALĂTURI · </textPath>
       </text>
       <path d="M65 102a30 25 0 0 1 60 0z" fill="var(--color-burgundy)" />
       <circle cx="95" cy="108" r="3.5" fill="var(--color-burgundy)" />
