@@ -10,7 +10,7 @@ export default defineEventHandler((event) => {
     db.select({ guestId: picks.guestId, total: count() }).from(picks).groupBy(picks.guestId).all().map((row) => [row.guestId, row.total]),
   )
   return db
-    .select({ id: guests.id, name: guests.name })
+    .select({ id: guests.id, name: guests.name, phone: guests.phone })
     .from(guests)
     .all()
     .map((guest): AdminGuest => ({ ...guest, pickCount: pickCounts.get(guest.id) ?? 0 }))

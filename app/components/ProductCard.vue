@@ -16,13 +16,20 @@ defineEmits<{
 
 const isMine = computed(() => props.product.picks.some((pick) => pick.mine))
 const isShared = computed(() => props.product.picks.length > 1)
+/** The need is fully covered: nobody (not even someone who already picked it) can pick more. */
+const isFull = computed(
+  () => props.product.neededQuantity !== null && props.product.totalQuantity >= props.product.neededQuantity,
+)
+const progressPercent = computed(() =>
+  props.product.neededQuantity ? Math.min(100, Math.round((props.product.totalQuantity / props.product.neededQuantity) * 100)) : 0,
+)
 
 const status = computed(() => (props.product.picks.length ? `Ales de ${props.product.picks.length}` : 'Liber'))
 const buttonLabel = computed(() => (props.product.picks.length ? 'Pun și eu →' : 'Îl aleg eu →'))
 </script>
 
 <template>
-  <article class="flex flex-col gap-2.5 sm:gap-3.5">
+  <article class="flex flex-col gap-2.5 sm:gap-3.5" :class="{ 'opacity-60': isFull }">
     <div class="arch relative flex items-center justify-center overflow-hidden" :class="tint">
       <div v-if="!product.image" class="ruled absolute inset-0" aria-hidden="true" />
       <!-- no-referrer: some shops refuse to show their pictures on other sites. -->
@@ -51,10 +58,10 @@ const buttonLabel = computed(() => (props.product.picks.length ? 'Pun și eu →
       </svg>
 
       <span
-        v-if="isShared"
+        v-if="isFull || isShared"
         class="mono-label absolute bottom-5 left-1/2 -translate-x-1/2 rotate-[-10deg] whitespace-nowrap border-[1.5px] border-burgundy bg-paper px-2.5 py-1.5 font-bold text-burgundy sm:bottom-9 sm:border-2 sm:px-4 sm:py-2 sm:text-[13px] sm:tracking-[0.2em]"
       >
-        Cadou comun
+        {{ isFull ? 'Nevoie acoperită' : 'Cadou comun' }}
       </span>
     </div>
 
@@ -73,10 +80,16 @@ const buttonLabel = computed(() => (props.product.picks.length ? 'Pun și eu →
       Vezi produsul ↗
     </a>
 
+    <div v-if="product.neededQuantity" class="space-y-1.5">
+      <div class="h-1 bg-rule"><div class="h-full bg-forest" :style="{ width: `${progressPercent}%` }" /></div>
+      <p class="mono-label text-[11px] text-ink-soft">{{ product.totalQuantity }} din {{ product.neededQuantity }} bucăți alese</p>
+    </div>
+
     <ul v-if="product.picks.length" class="space-y-1.5 text-[13px] leading-snug sm:text-sm">
       <li v-for="pick in product.picks" :key="pick.id">
         <span class="font-bold">{{ pick.guestName }}</span>
         <span v-if="pick.quantity > 1"> · {{ pick.quantity }} buc.</span>
+        <a v-if="pick.phone" :href="`tel:${pick.phone}`" class="text-link ml-1.5">{{ pick.phone }}</a>
         <span v-if="pick.mine" class="font-bold text-forest"> (tu)</span>
         <span v-if="pick.note" class="block font-display text-base italic text-ink-soft sm:text-lg">„{{ pick.note }}”</span>
         <button v-if="pick.mine" type="button" class="text-link text-burgundy" @click="$emit('cancel', pick.id)">Anulează</button>
@@ -91,7 +104,7 @@ const buttonLabel = computed(() => (props.product.picks.length ? 'Pun și eu →
         v-if="isMine"
         type="button"
         class="btn btn-primary w-full whitespace-nowrap sm:w-auto"
-        aria-label="Ales de tine. Apasă ca să adaugi încă."
+        aria-label="Ales de tine. Apasă ca să vezi sau să anulezi alegerea."
         @click="$emit('pick', product)"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -99,6 +112,7 @@ const buttonLabel = computed(() => (props.product.picks.length ? 'Pun și eu →
         </svg>
         Ales de tine
       </button>
+      <button v-else-if="isFull" type="button" class="btn w-full whitespace-nowrap sm:w-auto" disabled>Nevoie acoperită</button>
       <button v-else type="button" class="btn w-full whitespace-nowrap sm:w-auto" @click="$emit('pick', product)">{{ buttonLabel }}</button>
     </div>
   </article>

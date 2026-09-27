@@ -6,7 +6,9 @@
  *
  * It uses the same database as the app: `./data`, or `NUXT_DATA_DIR` (also read from `.env`).
  * In the app, choose one of the seeded guests as "who you are" to see their picks as yours ("Ales de tine")
- * and to try cancelling; choose a guest without picks to try picking from scratch.
+ * and to try cancelling; choose a guest without picks to try picking from scratch. Some guests have no phone
+ * number, to test that state too. "Mixer planetar" is seeded exactly at its needed quantity (full/disabled);
+ * "Lustră plisată" is under way but not full yet (partial progress bar).
  */
 import { crc32, deflateSync } from 'node:zlib'
 import { openDatabase } from '../server/db/connect'
@@ -30,21 +32,24 @@ interface SeedProduct {
   price?: number
   image?: ImageKind
   picks?: SeedPick[]
+  /** How many are needed in total. Once picks reach it, the product shows as full ("Nevoie acoperită"). */
+  neededQuantity?: number
 }
 
 // The names deliberately have Romanian diacritics, to test how they are displayed and searched.
-// The last four have no picks, and the last one stands for a couple.
-const GUESTS = [
-  'Ana Țugulea',
-  'Mihai Ștefan',
-  'Ioana Popescu',
-  'Andrei Ionescu',
-  'Cristina Vasilescu',
-  'Dan Șerban',
-  'Elena Rusu',
-  'Vlad Munteanu',
-  'Ștefania Toma',
-  'Radu și Miruna Pop',
+// The last four have no picks, and the last one stands for a couple. Some are left without a phone on purpose,
+// to test that state too.
+const GUESTS: { name: string; phone?: string }[] = [
+  { name: 'Ana Țugulea', phone: '+373 69 123 456' },
+  { name: 'Mihai Ștefan', phone: '+373 68 234 567' },
+  { name: 'Ioana Popescu' },
+  { name: 'Andrei Ionescu', phone: '+373 79 345 678' },
+  { name: 'Cristina Vasilescu', phone: '+373 60 456 789' },
+  { name: 'Dan Șerban' },
+  { name: 'Elena Rusu', phone: '+373 78 567 890' },
+  { name: 'Vlad Munteanu' },
+  { name: 'Ștefania Toma', phone: '+373 67 678 901' },
+  { name: 'Radu și Miruna Pop', phone: '+373 69 789 012' },
 ]
 
 const PRODUCTS: SeedProduct[] = [
@@ -63,12 +68,14 @@ const PRODUCTS: SeedProduct[] = [
     picks: [{ guest: 'Ioana Popescu', quantity: 2, note: 'Două seturi, unul e din partea bunicii' }],
   },
   {
-    // Several guests on one product: this is the "cadou comun" state.
+    // Several guests on one product, and their combined quantity exactly meets neededQuantity: this is the
+    // "full" / "Nevoie acoperită" state (disabled for everyone else).
     name: 'Mixer planetar',
     description: 'Pentru cozonaci, prăjituri și experimentele de weekend.',
     link: 'https://www.emag.ro/',
     price: 4800,
     image: 'stripes',
+    neededQuantity: 3,
     picks: [
       { guest: 'Mihai Ștefan', note: 'Ne combinăm cu Ana și Andrei' },
       { guest: 'Andrei Ionescu' },
@@ -86,9 +93,11 @@ const PRODUCTS: SeedProduct[] = [
     price: 380,
   },
   {
+    // Under way but not full yet: this shows the progress bar mid-way.
     name: 'Lustră plisată',
     description: 'Lumină caldă, difuză, deasupra mesei.',
     price: 2400,
+    neededQuantity: 4,
     picks: [{ guest: 'Dan Șerban' }, { guest: 'Ana Țugulea', note: 'Împreună cu Dan' }],
   },
   {
@@ -215,8 +224,11 @@ async function main() {
   }
 
   const guestIds = new Map<string, number>()
-  for (const name of GUESTS) {
-    guestIds.set(name, db.insert(guests).values({ name }).returning({ id: guests.id }).get().id)
+  for (const person of GUESTS) {
+    guestIds.set(
+      person.name,
+      db.insert(guests).values({ name: person.name, phone: person.phone ?? null }).returning({ id: guests.id }).get().id,
+    )
   }
 
   let pickCount = 0
@@ -229,6 +241,7 @@ async function main() {
         link: item.link ?? null,
         price: item.price ?? null,
         imageId: item.image ? imageIdFor(item.image) : null,
+        neededQuantity: item.neededQuantity ?? null,
       })
       .returning({ id: products.id })
       .get()

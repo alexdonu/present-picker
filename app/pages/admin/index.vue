@@ -17,6 +17,9 @@ const guestCount = computed(
 /** Nitro's typed routes choke on template-literal URLs; typing the address as a plain string avoids that. */
 const remove = (url: string) => $fetch(url, { method: 'DELETE' })
 
+const quantityLabel = (product: PublicProduct) =>
+  product.neededQuantity ? `${product.totalQuantity} / ${product.neededQuantity} buc.` : `${product.totalQuantity} buc.`
+
 async function run(action: () => Promise<unknown>) {
   error.value = ''
   try {
@@ -78,7 +81,10 @@ function removePick(pickId: number, guestName: string) {
             <p class="mono-label mt-1.5 text-ink-soft">
               <span v-if="product.price !== null">~ {{ formatPrice(product.price) }} · </span>
               {{ product.picks.length }} {{ product.picks.length === 1 ? 'alegere' : 'alegeri' }}
-              ({{ product.totalQuantity }} buc.)
+              ({{ quantityLabel(product) }})
+              <span v-if="product.neededQuantity && product.totalQuantity >= product.neededQuantity" class="font-bold text-forest">
+                · nevoie acoperită
+              </span>
             </p>
           </div>
 

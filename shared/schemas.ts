@@ -20,8 +20,11 @@ const httpUrl = (message: string) =>
     }, message)
 
 /** Empty strings from HTML forms mean "not provided". */
-const optional = <T extends z.ZodType>(schema: T) =>
+export const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (typeof value === 'string' && value.trim() === '' ? undefined : value), schema.optional())
+
+/** A "true"/"false" string from a form field, coerced to a boolean. */
+const formBoolean = () => z.preprocess((value) => value === 'true' || value === true, z.boolean())
 
 export const pickSchema = z.object({
   quantity: z
@@ -56,7 +59,21 @@ export const productSchema = z.object({
       ),
   ),
   imageUrl: optional(httpUrl('Adresa imaginii trebuie să înceapă cu http:// sau https://')),
-  removeImage: z.preprocess((value) => value === 'true' || value === true, z.boolean()),
+  removeImage: formBoolean(),
+  neededQuantity: optional(
+    z
+      .string()
+      .trim()
+      .transform((value) => Number(value))
+      .pipe(
+        z
+          .number({ error: 'Cantitatea necesară trebuie să fie un număr.' })
+          .int('Cantitatea necesară trebuie să fie un număr întreg.')
+          .min(1, 'Cantitatea necesară trebuie să fie cel puțin 1.')
+          .max(999, 'Cantitatea necesară este prea mare.'),
+      ),
+  ),
+  removeNeededQuantity: formBoolean(),
 })
 
 export type ProductInput = z.infer<typeof productSchema>
@@ -71,5 +88,15 @@ export const guestNameSchema = z
   .trim()
   .min(1, 'Scrie numele invitatului.')
   .max(60, 'Numele este prea lung (maxim 60 de caractere).')
+
+// Loosely validated: formats vary (+373 xx xxx xxx, 0xxxxxxxx, cu spații sau liniuțe...). Just enough to catch
+// stray text pasted into the field by mistake.
+export const guestPhoneSchema = optional(
+  z
+    .string()
+    .trim()
+    .max(30, 'Numărul de telefon este prea lung.')
+    .regex(/^[0-9+()\-\s]+$/, 'Numărul de telefon poate conține doar cifre, spații și + - ( )'),
+)
 
 export const MAX_GUESTS_PER_BATCH = 200

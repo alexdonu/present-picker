@@ -95,10 +95,12 @@
     text-transform: uppercase;
   }
 
-  /* Picture frame with a rounded top, like an arched window. */
+  /* Picture frame with a rounded top, like an arched window. The ink border is what makes it read as a frame
+     rather than just a cropped shape — it matches the border weight used on .panel and .btn everywhere else. */
   .arch {
     aspect-ratio: 10 / 11;
     border-radius: 50% 50% 4px 4px / 45.5% 45.5% 4px 4px;
+    border: 1.5px solid var(--color-ink);
   }
 
   .ruled {

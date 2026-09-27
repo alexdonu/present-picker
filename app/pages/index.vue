@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Guest } from '#shared/types/guest'
+import type { DirectoryGuest, Guest } from '#shared/types/guest'
 import type { PublicProduct } from '#shared/types/product'
 
 const { event } = useAppConfig()
@@ -9,6 +9,10 @@ const { data: siteSettings } = await useFetch<{ heroImageUrl: string | null }>('
 
 /** Who this browser chose to be. Remembered by the server (cookie), so it is asked only once. */
 const guest = computed(() => me.value?.guest ?? undefined)
+
+// The guest directory (with phone numbers) requires having chosen an identity; before that it 401s and `data`
+// simply stays empty (not shown as an error). Refreshed after choosing an identity — see onIdentityChosen.
+const { data: directory, refresh: refreshDirectory } = await useFetch<DirectoryGuest[]>('/api/directory')
 
 /** Backgrounds for the arch frames, cycled so neighbouring cards differ. */
 const TINTS = ['bg-tint-sand', 'bg-tint-blush', 'bg-tint-sage', 'bg-tint-linen']
@@ -72,8 +76,9 @@ function changeIdentityFor(product: PublicProduct) {
 async function onIdentityChosen(chosen: Guest) {
   const product = pendingProduct
   pendingProduct = undefined
-  // The list shows "Ales de tine" from the server's point of view, so reload it for the new identity.
-  await Promise.all([refreshMe(), refreshProducts()])
+  // The list shows "Ales de tine" from the server's point of view, so reload it for the new identity; the
+  // directory only becomes visible once an identity exists, so it needs a refresh too.
+  await Promise.all([refreshMe(), refreshProducts(), refreshDirectory()])
 
   const fresh = product && products.value?.find((candidate) => candidate.id === product.id)
   if (fresh) pickDialog.value?.open(fresh)
@@ -134,8 +139,7 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
           Ne-am<br /><em class="pl-14 sm:pl-24 xl:pl-[120px]">mutat.</em>
         </h1>
         <p class="max-w-[520px] text-[17px] leading-[1.6] sm:text-xl">
-          <span class="bg-highlight">Am adunat aici câteva idei de lucruri care ne-ar face noul cămin mai al nostru. Dacă vrei să alegi ceva, spune-ne
-          care — iar noi ne bucurăm oricum că vii.</span>
+          <span class="bg-highlight">Am adunat aici câteva idei de lucruri care ne-ar face noul loc mai al nostru. Ne bucurăm nespus de mult că vii. Pupici.</span>
         </p>
       </div>
 
@@ -203,6 +207,22 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
           @pick="startPick"
           @cancel="cancelPick"
         />
+      </div>
+    </section>
+
+    <!-- Contacte: only once a name is chosen (also enforced by the server) -->
+    <section v-if="directory?.length" class="mx-auto max-w-[1440px] px-5 pb-16 sm:px-12 sm:pb-20 xl:px-20" aria-labelledby="contacte-title">
+      <div class="panel p-5 sm:p-8">
+        <p class="eyebrow">Contacte</p>
+        <h2 id="contacte-title" class="mt-2 text-3xl sm:text-4xl">Numerele invitaților</h2>
+        <p class="mt-2 max-w-xl text-ink-muted">Dacă vrei să te combini cu cineva sau ai o întrebare, poți suna direct.</p>
+        <ul class="mt-5 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+          <li v-for="person in directory" :key="person.id" class="flex items-baseline justify-between gap-3 border-b border-ink/20 py-1.5">
+            <span>{{ person.name }}</span>
+            <a v-if="person.phone" :href="`tel:${person.phone}`" class="text-link whitespace-nowrap">{{ person.phone }}</a>
+            <span v-else class="mono-label whitespace-nowrap text-ink-soft italic">fără telefon</span>
+          </li>
+        </ul>
       </div>
     </section>
 

@@ -26,6 +26,8 @@ export const products = sqliteTable('products', {
   imageId: integer('image_id').references(() => images.id, { onDelete: 'set null' }),
   /** A remote http(s) URL an admin pasted instead of uploading a photo. */
   imageUrl: text('image_url'),
+  /** How many are needed in total, across every guest's picks. Once reached, nobody can pick (more of) it. */
+  neededQuantity: integer('needed_quantity'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 })
 
@@ -46,6 +48,8 @@ export const guests = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
+    /** Free text (formats vary: +373 xx xxx xxx, 0xxxxxxxx, ...). Shown to other guests once they self-identify. */
+    phone: text('phone'),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   },
   (table) => [uniqueIndex('guests_name_unique').on(table.name)],

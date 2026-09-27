@@ -10,8 +10,22 @@ export default defineEventHandler(async (event) => {
   const input = await readValidatedJson(event, pickSchema)
 
   const db = useDb()
-  const product = db.select({ id: products.id }).from(products).where(eq(products.id, productId)).get()
+  const product = db.select({ id: products.id, neededQuantity: products.neededQuantity }).from(products).where(eq(products.id, productId)).get()
   if (!product) throw createError({ statusCode: 404, message: 'Produsul nu mai există.' })
+
+  // Nothing here runs `await` past this point, so no other request's picks can land in between this check and
+  // the write below — the two together are effectively one atomic step.
+  if (product.neededQuantity !== null) {
+    const pickedSoFar = db
+      .select({ quantity: picks.quantity })
+      .from(picks)
+      .where(eq(picks.productId, productId))
+      .all()
+      .reduce((sum, pick) => sum + pick.quantity, 0)
+    if (pickedSoFar >= product.neededQuantity) {
+      throw createError({ statusCode: 409, message: 'Nevoia pentru acest cadou este deja acoperită.' })
+    }
+  }
 
   const existing = db
     .select()

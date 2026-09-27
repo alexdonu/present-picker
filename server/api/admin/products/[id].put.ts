@@ -24,6 +24,11 @@ export default defineEventHandler(async (event) => {
     imageUrl = null
   }
 
+  // New value > "remove" > keep what is there.
+  let neededQuantity = current.neededQuantity
+  if (input.neededQuantity !== undefined) neededQuantity = input.neededQuantity
+  else if (input.removeNeededQuantity) neededQuantity = null
+
   db.update(products)
     .set({
       name: input.name,
@@ -32,6 +37,7 @@ export default defineEventHandler(async (event) => {
       price: input.price ?? null,
       imageId,
       imageUrl,
+      neededQuantity,
     })
     .where(eq(products.id, id))
     .run()

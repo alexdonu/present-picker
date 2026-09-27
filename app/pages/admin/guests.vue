@@ -13,8 +13,10 @@ const info = ref('')
 
 const editingId = ref<number>()
 const editName = ref('')
+const editPhone = ref('')
 
 const withPicks = computed(() => guests.value?.filter((guest) => guest.pickCount > 0).length ?? 0)
+const withPhone = computed(() => guests.value?.filter((guest) => guest.phone).length ?? 0)
 
 /** Nitro's typed routes choke on template-literal URLs; typing the address as a plain string avoids that. */
 const send = (url: string, method: 'PUT' | 'DELETE', body?: object) => $fetch(url, { method, body })
@@ -51,13 +53,15 @@ async function add() {
 function startEdit(guest: AdminGuest) {
   editingId.value = guest.id
   editName.value = guest.name
+  editPhone.value = guest.phone ?? ''
   info.value = ''
 }
 
 async function saveEdit() {
   if (editingId.value === undefined) return
   const id = editingId.value
-  if (await run(() => send(`/api/admin/guests/${id}`, 'PUT', { name: editName.value }))) editingId.value = undefined
+  const body = { name: editName.value, phone: editPhone.value }
+  if (await run(() => send(`/api/admin/guests/${id}`, 'PUT', body))) editingId.value = undefined
 }
 
 function remove(guest: AdminGuest) {
@@ -73,7 +77,7 @@ function remove(guest: AdminGuest) {
     <p class="eyebrow">Administrare</p>
     <h1 class="mt-2 text-6xl leading-none">Invitați</h1>
     <p class="mono-label mt-3 sm:text-[13px]">
-      {{ guests?.length ?? 0 }} invitați · {{ withPicks }} au ales deja ceva
+      {{ guests?.length ?? 0 }} invitați · {{ withPicks }} au ales deja ceva · {{ withPhone }} au telefon completat
     </p>
     <p class="mt-4 max-w-2xl text-ink-muted">
       Invitații își aleg numele din această listă la prima deschidere a paginii. Un nume poate fi și al unui cuplu sau
@@ -98,8 +102,17 @@ function remove(guest: AdminGuest) {
     <ul v-else class="mt-10 divide-y divide-ink/25 border-y border-ink">
       <li v-for="guest in guests" :key="guest.id" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
         <form v-if="editingId === guest.id" class="flex min-w-0 flex-1 flex-wrap items-center gap-2" @submit.prevent="saveEdit">
-          <label :for="`guest-${guest.id}`" class="sr-only">Numele invitatului</label>
-          <input :id="`guest-${guest.id}`" v-model="editName" class="field min-w-48 flex-1" type="text" maxlength="60" required />
+          <label :for="`guest-name-${guest.id}`" class="sr-only">Numele invitatului</label>
+          <input :id="`guest-name-${guest.id}`" v-model="editName" class="field min-w-48 flex-1" type="text" maxlength="60" required />
+          <label :for="`guest-phone-${guest.id}`" class="sr-only">Numărul de telefon</label>
+          <input
+            :id="`guest-phone-${guest.id}`"
+            v-model="editPhone"
+            class="field min-w-40 flex-1"
+            type="tel"
+            maxlength="30"
+            placeholder="ex: 069 123 456"
+          />
           <button type="submit" class="btn btn-small btn-primary">Salvează</button>
           <button type="button" class="btn btn-small" @click="editingId = undefined">Renunț</button>
         </form>
@@ -110,6 +123,8 @@ function remove(guest: AdminGuest) {
             <span class="mono-label ml-2 text-ink-soft">
               {{ guest.pickCount ? `${guest.pickCount} ${guest.pickCount === 1 ? 'alegere' : 'alegeri'}` : 'nicio alegere' }}
             </span>
+            <a v-if="guest.phone" :href="`tel:${guest.phone}`" class="text-link ml-2">{{ guest.phone }}</a>
+            <span v-else class="mono-label ml-2 text-ink-soft italic">fără telefon</span>
           </p>
           <div class="flex gap-2">
             <button type="button" class="btn btn-small" @click="startEdit(guest)">Editează</button>

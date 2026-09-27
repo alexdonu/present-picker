@@ -12,5 +12,6 @@ export default defineEventHandler((event) => {
     link: product.link,
     price: product.price,
     image: product.imageId ? imageUrl(product.imageId) : product.imageUrl,
+    neededQuantity: product.neededQuantity,
   }
 })

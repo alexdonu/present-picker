@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
       price: input.price ?? null,
       imageId: imageId ?? null,
       imageUrl: imageId ? null : (input.imageUrl ?? null),
+      neededQuantity: input.neededQuantity ?? null,
     })
     .returning({ id: products.id })
     .get()

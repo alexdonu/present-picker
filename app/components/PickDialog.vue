@@ -21,6 +21,8 @@ const productId = ref<number>()
 const product = computed(() => props.products.find((candidate) => candidate.id === productId.value))
 /** The visitor's own pick on this product, if they already made one. */
 const mine = computed(() => product.value?.picks.find((pick) => pick.mine))
+/** The need is fully covered: nobody (not even someone who already picked it) can pick more. */
+const isFull = computed(() => product.value?.neededQuantity != null && product.value.totalQuantity >= product.value.neededQuantity)
 
 const quantity = ref(1)
 const note = ref('')
@@ -141,28 +143,37 @@ defineExpose({ open })
         </div>
       </div>
 
-      <div>
-        <span id="quantity-label" class="field-label">{{ mine ? 'Câte bucăți vrei să mai adaugi?' : 'Câte bucăți?' }}</span>
-        <div class="flex items-center gap-4" role="group" aria-labelledby="quantity-label">
-          <button type="button" class="btn btn-icon" aria-label="Mai puține" :disabled="quantity <= 1" @click="quantity--">−</button>
-          <output class="min-w-8 text-center font-display text-4xl" aria-live="polite">{{ quantity }}</output>
-          <button type="button" class="btn btn-icon" aria-label="Mai multe" :disabled="quantity >= MAX_PICK_QUANTITY" @click="quantity++">+</button>
-        </div>
-      </div>
+      <p v-if="isFull" class="border-[1.5px] border-forest bg-highlight p-3 text-sm leading-relaxed">
+        <span class="mono-label mr-1 text-forest">Nevoie acoperită</span>
+        {{ mine ? 'Nu mai e nevoie de altele — mulțumim!' : 'Nu mai e nevoie de altele. Poți alege alt cadou din listă.' }}
+      </p>
 
-      <div>
-        <label for="guest-note" class="field-label">Mențiune <span class="normal-case tracking-normal">(opțional)</span></label>
-        <input id="guest-note" v-model="note" class="field" type="text" maxlength="200" placeholder="ex: Ne combinăm cu Mihai" />
-        <p class="mt-2 text-sm text-ink-soft">
-          Poți alege același cadou ca alți prieteni: numele tuturor apar lângă el, așa vă puteți combina.
-        </p>
-      </div>
+      <template v-else>
+        <div>
+          <span id="quantity-label" class="field-label">{{ mine ? 'Câte bucăți vrei să mai adaugi?' : 'Câte bucăți?' }}</span>
+          <div class="flex items-center gap-4" role="group" aria-labelledby="quantity-label">
+            <button type="button" class="btn btn-icon" aria-label="Mai puține" :disabled="quantity <= 1" @click="quantity--">−</button>
+            <output class="min-w-8 text-center font-display text-4xl" aria-live="polite">{{ quantity }}</output>
+            <button type="button" class="btn btn-icon" aria-label="Mai multe" :disabled="quantity >= MAX_PICK_QUANTITY" @click="quantity++">+</button>
+          </div>
+        </div>
+
+        <div>
+          <label for="guest-note" class="field-label">Mențiune <span class="normal-case tracking-normal">(opțional)</span></label>
+          <input id="guest-note" v-model="note" class="field" type="text" maxlength="200" placeholder="ex: Ne combinăm cu Mihai" />
+          <p class="mt-2 text-sm text-ink-soft">
+            Poți alege același cadou ca alți prieteni: numele tuturor apar lângă el, așa vă puteți combina.
+          </p>
+        </div>
+      </template>
 
       <p v-if="error" class="notice-error" role="alert">{{ error }}</p>
 
       <div class="flex flex-wrap justify-end gap-3">
         <button type="button" class="btn" @click="close">Renunț</button>
-        <button type="submit" class="btn btn-primary" :disabled="submitting">{{ submitting ? 'Se salvează…' : mine ? 'Adaugă la alegere' : 'Confirm alegerea' }}</button>
+        <button v-if="!isFull" type="submit" class="btn btn-primary" :disabled="submitting">
+          {{ submitting ? 'Se salvează…' : mine ? 'Adaugă la alegere' : 'Confirm alegerea' }}
+        </button>
       </div>
     </form>
   </dialog>

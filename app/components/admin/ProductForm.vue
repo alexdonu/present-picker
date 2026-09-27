@@ -6,6 +6,7 @@ export interface AdminProductFormValues {
   link: string | null
   price: number | null
   image: string | null
+  neededQuantity: number | null
 }
 </script>
 
@@ -23,6 +24,8 @@ const price = ref(props.product?.price?.toString() ?? '')
 const imageUrl = ref(props.product?.image?.startsWith('http') ? props.product.image : '')
 const removeImage = ref(false)
 const file = ref<File>()
+const neededQuantity = ref(props.product?.neededQuantity?.toString() ?? '')
+const removeNeededQuantity = ref(false)
 
 const error = ref('')
 const submitting = ref(false)
@@ -56,6 +59,8 @@ async function submit() {
   body.set('imageUrl', imageUrl.value)
   body.set('removeImage', String(removeImage.value))
   if (file.value) body.set('image', file.value)
+  body.set('neededQuantity', neededQuantity.value)
+  body.set('removeNeededQuantity', String(removeNeededQuantity.value))
 
   try {
     await $fetch(props.product ? `/api/admin/products/${props.product.id}` : '/api/admin/products', {
@@ -92,6 +97,27 @@ async function submit() {
     <div>
       <label for="price" class="field-label">Preț aproximativ, în lei <span class="normal-case tracking-normal">(opțional)</span></label>
       <input id="price" v-model="price" class="field max-w-48" type="text" inputmode="decimal" placeholder="ex: 150" />
+    </div>
+
+    <div>
+      <label for="needed-quantity" class="field-label">
+        Bucăți necesare <span class="normal-case tracking-normal">(opțional)</span>
+      </label>
+      <input
+        id="needed-quantity"
+        v-model="neededQuantity"
+        class="field max-w-48"
+        type="text"
+        inputmode="numeric"
+        placeholder="ex: 6"
+      />
+      <p class="mt-1 text-sm text-ink-soft">
+        Dacă o completezi, produsul devine indisponibil de îndată ce alegerile ajung la această cantitate.
+      </p>
+      <label v-if="product?.neededQuantity" class="mt-2 flex items-center gap-2 font-bold">
+        <input v-model="removeNeededQuantity" type="checkbox" class="size-5 accent-burgundy" />
+        Șterge limita (fără număr necesar)
+      </label>
     </div>
 
     <fieldset class="space-y-4 border border-dashed border-ink p-4">

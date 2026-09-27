@@ -4,7 +4,8 @@ import { guests, picks, products } from '../db/schema'
 
 /**
  * Every product with the picks made on it, in a shape that is safe to send to browsers.
- * `viewerGuestId` is the guest the visitor chose to be; it only serves to flag their own picks (`mine`).
+ * `viewerGuestId` is the guest the visitor chose to be; it flags their own picks (`mine`) and, since a phone
+ * number is only shown once someone has said who they are, gates every pick's `phone` on it too.
  */
 export function loadProducts(viewerGuestId?: number): PublicProduct[] {
   const db = useDb()
@@ -15,6 +16,7 @@ export function loadProducts(viewerGuestId?: number): PublicProduct[] {
       productId: picks.productId,
       guestId: picks.guestId,
       guestName: guests.name,
+      guestPhone: guests.phone,
       quantity: picks.quantity,
       note: picks.note,
     })
@@ -32,6 +34,7 @@ export function loadProducts(viewerGuestId?: number): PublicProduct[] {
       quantity: pick.quantity,
       note: pick.note,
       mine: viewerGuestId !== undefined && pick.guestId === viewerGuestId,
+      phone: viewerGuestId !== undefined ? pick.guestPhone : null,
     })
     picksByProduct.set(pick.productId, list)
   }
@@ -46,6 +49,7 @@ export function loadProducts(viewerGuestId?: number): PublicProduct[] {
       price: product.price,
       image: product.imageId ? imageUrl(product.imageId) : product.imageUrl,
       totalQuantity: productPicks.reduce((sum, pick) => sum + pick.quantity, 0),
+      neededQuantity: product.neededQuantity,
       picks: productPicks,
     }
   })
