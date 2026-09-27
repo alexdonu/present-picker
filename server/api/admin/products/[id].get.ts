@@ -5,6 +5,12 @@ export default defineEventHandler((event) => {
   const product = useDb().select().from(products).where(eq(products.id, getIdParam(event))).get()
   if (!product) throw createError({ statusCode: 404, message: 'Produsul nu există.' })
 
-  const { createdAt: _createdAt, ...fields } = product
-  return fields
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    link: product.link,
+    price: product.price,
+    image: product.imageId ? imageUrl(product.imageId) : product.imageUrl,
+  }
 })

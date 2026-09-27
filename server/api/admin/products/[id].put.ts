@@ -11,10 +11,18 @@ export default defineEventHandler(async (event) => {
   const { input, file } = await readProductForm(event)
 
   // New upload > pasted address > "remove image" > keep what is there.
-  let image = current.image
-  if (file) image = await saveUpload(file)
-  else if (input.imageUrl) image = input.imageUrl
-  else if (input.removeImage) image = null
+  let imageId = current.imageId
+  let imageUrl = current.imageUrl
+  if (file) {
+    imageId = saveImage(file)
+    imageUrl = null
+  } else if (input.imageUrl) {
+    imageId = null
+    imageUrl = input.imageUrl
+  } else if (input.removeImage) {
+    imageId = null
+    imageUrl = null
+  }
 
   db.update(products)
     .set({
@@ -22,11 +30,12 @@ export default defineEventHandler(async (event) => {
       description: input.description ?? null,
       link: input.link ?? null,
       price: input.price ?? null,
-      image,
+      imageId,
+      imageUrl,
     })
     .where(eq(products.id, id))
     .run()
 
-  if (image !== current.image) await removeUpload(current.image)
+  if (current.imageId !== null && current.imageId !== imageId) deleteImage(current.imageId)
   return { id }
 })

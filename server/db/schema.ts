@@ -1,5 +1,18 @@
 import { sql } from 'drizzle-orm'
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { blob, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+
+/**
+ * An image kept in the database: a product photo or the hero image. A given row is never edited in place — a
+ * replacement always becomes a new row — so the URL it is served from (`/api/images/{id}`) can be cached by
+ * browsers forever.
+ */
+export const images = sqliteTable('images', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  data: blob('data', { mode: 'buffer' }).notNull(),
+  /** e.g. 'image/jpeg'. Detected from the file's bytes when it is uploaded, not trusted from the browser. */
+  contentType: text('content_type').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
 
 export const products = sqliteTable('products', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -9,9 +22,18 @@ export const products = sqliteTable('products', {
   link: text('link'),
   /** Approximate price in whole lei. */
   price: integer('price'),
-  /** Either an http(s) URL or a `/uploads/<file>` path of an image uploaded by an admin. */
-  image: text('image'),
+  /** A photo an admin uploaded, kept in `images`. At most one of `imageId`/`imageUrl` is set at a time. */
+  imageId: integer('image_id').references(() => images.id, { onDelete: 'set null' }),
+  /** A remote http(s) URL an admin pasted instead of uploading a photo. */
+  imageUrl: text('image_url'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
+
+/** Site-wide settings. Always exactly one row, with id 1. */
+export const settings = sqliteTable('settings', {
+  id: integer('id').primaryKey(),
+  /** The photo shown in the hero arch on the guest page, instead of the default decorative art. */
+  heroImageId: integer('hero_image_id').references(() => images.id, { onDelete: 'set null' }),
 })
 
 /**

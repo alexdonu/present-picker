@@ -5,7 +5,7 @@ Aplicația în care prietenii noștri aleg cadouri pentru petrecerea de intrare 
 - **Noi definim invitații**, iar fiecare invitat își alege numele din listă, o singură dată, la prima deschidere a paginii (cu confirmare). Nu există conturi sau parole: e un grup de prieteni și fiecare are încredere în ceilalți.
 - Invitații văd lista de idei, aleg unul sau mai multe cadouri, același cadou de mai multe ori, sau se combină mai mulți la același cadou. Dacă intră de pe alt telefon sau calculator, își aleg din nou numele și își regăsesc alegerile.
 - Pagina spune, cu litere foarte mari, că **nu este obligatoriu să cumpere nimic** și că cel mai important este să vină.
-- Noi, gazdele, adăugăm produsele (poză, link, preț) și vedem cine ce a ales din `/admin`.
+- Noi, gazdele, adăugăm produsele (poză, link, preț) și vedem cine ce a ales din `/admin`. Putem alege și o poză pentru arcul din capul paginii, din `/admin` → *Aspect* (altfel rămâne desenul decorativ).
 - Tot ce vede utilizatorul final este în română; codul este în engleză.
 
 Construită cu [Nuxt 4](https://nuxt.com) (Vue 3), Tailwind CSS 4 și SQLite (Drizzle ORM).
@@ -48,7 +48,7 @@ Pornește același server, dar accesibil în rețeaua locală. În terminal apar
 - Oricine e în aceeași rețea poate deschide site-ul, inclusiv `/admin` (protejat cu parola din `.env`). Folosește doar o rețea de încredere, nu una publică.
 - Când folosești o bază de date cu date de test, e aceeași bază ca la `npm run dev` (`data/`).
 
-Baza de date (`present-picker.db`) și pozele încărcate se salvează în folderul `data/` (sau unde indică `NUXT_DATA_DIR`). Baza se creează singură la prima pornire.
+Baza de date (`present-picker.db`) se salvează în folderul `data/` (sau unde indică `NUXT_DATA_DIR`) și se creează singură la prima pornire. Pozele — ale produselor și cea din arc — se țin tot în ea, nu ca fișiere separate.
 
 ## Date de test
 
@@ -68,7 +68,9 @@ npm run db:clean             # arată ce se șterge și cere să scrii „delete
 npm run db:clean -- --yes    # fără întrebare (pentru scripturi)
 ```
 
-Ștergerea nu se poate anula. **Nu rula `db:clean` și nici `db:seed -- --reset` pe baza cu datele reale ale petrecerii** (fă întâi o copie a folderului `data/`).
+Imaginea din arc, dacă ai setat una din *Aspect*, nu se șterge: e o alegere de aspect, nu date de test.
+
+Ștergerea nu se poate anula. **Nu rula `db:clean` și nici `db:seed -- --reset` pe baza cu datele reale ale petrecerii** (fă întâi o copie a fișierului `data/present-picker.db`).
 
 Invitații din seed sunt inventați. La prima deschidere a paginii alege oricare dintre ei ca să-i vezi alegerile ca fiind ale tale („Ales de tine”, anulare), sau alege unul fără alegeri (ultimii patru) ca să încerci de la zero. Pentru a-ți schimba identitatea în timpul testelor apasă „Nu ești tu?”.
 
@@ -90,7 +92,7 @@ npm start
 - `npm start` citește variabilele din `.env` dacă există. Poți să le dai și direct în mediu (`NUXT_ADMIN_PASSWORD`, `NUXT_SESSION_SECRET`, `NUXT_DATA_DIR`).
 - Portul implicit este 3000 (`PORT=8080 npm start` îl schimbă).
 - Pune în față un reverse proxy cu HTTPS (Caddy, nginx, Cloudflare Tunnel etc.). Cookie-urile devin `Secure` automat când conexiunea este HTTPS.
-- Copia de siguranță înseamnă să salvezi tot folderul `data/`.
+- Copia de siguranță înseamnă să salvezi fișierul `data/present-picker.db` — pozele sunt în el, nu în fișiere separate.
 
 ## Prima punere în producție, cu baza de date curată
 
@@ -105,8 +107,8 @@ Baza de date pornește **goală** pe orice server nou: `data/` (baza și pozele)
    npm run db:status
    ```
 
-   Trebuie să vezi `products 0`, `guests 0`, `picks 0` și `Clean: there is no data at all.` Pentru scripturi de deploy, `npm run db:status -- --expect-clean` iese cu eroare dacă găsește orice date.
-5. Intră pe `/admin` și adaugă **invitații** (*Invitați*) și **produsele**. Abia apoi trimite linkul prietenilor.
+   Trebuie să vezi `products 0`, `guests 0`, `picks 0` și `Clean: there is no data at all.` Pentru scripturi de deploy, `npm run db:status -- --expect-clean` iese cu eroare dacă găsește orice date. (Dacă ai setat deja o imagine pentru arc din *Aspect*, tot „Clean” rămâne: nu contează ca date de test.)
+5. Intră pe `/admin` și adaugă **invitații** (*Invitați*) și **produsele**. Alege și o poză pentru arc din *Aspect*, dacă vrei. Abia apoi trimite linkul prietenilor.
 
 Dacă rulezi producția pe **același calculator** sau într-un folder care are deja date de test, golește baza cu `npm run db:clean` (cere să scrii „delete”) sau pornește aplicația cu alt `NUXT_DATA_DIR`. Înainte de petrecere, fă o copie a folderului `data/`.
 

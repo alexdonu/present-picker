@@ -5,6 +5,7 @@ import type { PublicProduct } from '#shared/types/product'
 const { event } = useAppConfig()
 const { data: products, refresh: refreshProducts, error } = await useFetch<PublicProduct[]>('/api/products')
 const { data: me, refresh: refreshMe } = await useFetch<{ guest: Guest | null }>('/api/me')
+const { data: siteSettings } = await useFetch<{ heroImageUrl: string | null }>('/api/settings')
 
 /** Who this browser chose to be. Remembered by the server (cookie), so it is asked only once. */
 const guest = computed(() => me.value?.guest ?? undefined)
@@ -138,7 +139,7 @@ onBeforeUnmount(() => clearTimeout(flashTimer))
         </p>
       </div>
 
-      <HeroArch class="lg:col-start-2 lg:row-span-2 lg:row-start-1" />
+      <HeroArch class="lg:col-start-2 lg:row-span-2 lg:row-start-1" :image-url="siteSettings?.heroImageUrl" />
 
       <dl
         v-if="hasDetails"

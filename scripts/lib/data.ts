@@ -1,8 +1,7 @@
-import { readdir, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { sql } from 'drizzle-orm'
+import { ne, sql } from 'drizzle-orm'
 import type { openDatabase } from '../../server/db/connect'
-import { guests, picks, products } from '../../server/db/schema'
+import { guests, images, picks, products, settings } from '../../server/db/schema'
 
 type Database = ReturnType<typeof openDatabase>
 
@@ -11,37 +10,36 @@ export const dataDirectory = () => resolve(process.cwd(), process.env.NUXT_DATA_
 
 export const databaseFile = (directory: string) => join(directory, 'present-picker.db')
 
-// Same file-name shape the app gives to uploaded images. Anything else in the folder is left alone.
-const UPLOAD_FILE = /^[a-f0-9]{32}\.(jpg|png|webp|gif)$/
+const heroImageId = (db: Database) => db.select().from(settings).get()?.heroImageId ?? null
 
-export async function uploadedImages(directory: string) {
-  try {
-    return (await readdir(join(directory, 'uploads'))).filter((file) => UPLOAD_FILE.test(file))
-  } catch {
-    return [] // no uploads folder yet
-  }
-}
-
-export async function countData(db: Database, directory: string) {
+/**
+ * Product photos and guest picks, guests and products themselves — everything that counts as "data" rather than
+ * site configuration. The hero image (a deliberate admin setting, not sample data) is not included.
+ */
+export function countData(db: Database) {
+  const hero = heroImageId(db)
   return {
     products: db.select().from(products).all().length,
     guests: db.select().from(guests).all().length,
     picks: db.select().from(picks).all().length,
-    images: (await uploadedImages(directory)).length,
+    images: hero ? db.select().from(images).where(ne(images.id, hero)).all().length : db.select().from(images).all().length,
   }
 }
 
-/** Deletes every product, guest and pick and every uploaded image, and restarts the ids from 1. */
-export async function wipeData(db: Database, directory: string) {
-  const counts = await countData(db, directory)
+/**
+ * Deletes every product, guest, pick and product photo, and restarts the ids from 1. The hero image, if one is
+ * set, is kept — it is a deliberate admin setting, not sample data.
+ */
+export function wipeData(db: Database) {
+  const counts = countData(db)
+  const hero = heroImageId(db)
 
   db.delete(picks).run()
   db.delete(guests).run()
   db.delete(products).run()
+  if (hero) db.delete(images).where(ne(images.id, hero)).run()
+  else db.delete(images).run()
   db.run(sql`DELETE FROM sqlite_sequence WHERE name IN ('products', 'guests', 'picks')`)
 
-  for (const file of await uploadedImages(directory)) {
-    await rm(join(directory, 'uploads', file), { force: true })
-  }
   return counts
 }

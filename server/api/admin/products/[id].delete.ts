@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { products } from '../../../db/schema'
 
-// Also deletes the product's picks (foreign key cascade) and its uploaded image.
-export default defineEventHandler(async (event) => {
+// Also deletes the product's picks (foreign key cascade) and its photo, if it had one.
+export default defineEventHandler((event) => {
   const id = getIdParam(event)
   const db = useDb()
 
@@ -10,6 +10,6 @@ export default defineEventHandler(async (event) => {
   if (!product) throw createError({ statusCode: 404, message: 'Produsul nu există.' })
 
   db.delete(products).where(eq(products.id, id)).run()
-  await removeUpload(product.image)
+  deleteImage(product.imageId)
   return { ok: true }
 })

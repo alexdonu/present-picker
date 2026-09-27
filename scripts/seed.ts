@@ -8,12 +8,9 @@
  * In the app, choose one of the seeded guests as "who you are" to see their picks as yours ("Ales de tine")
  * and to try cancelling; choose a guest without picks to try picking from scratch.
  */
-import { randomBytes } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
 import { openDatabase } from '../server/db/connect'
-import { guests, picks, products } from '../server/db/schema'
+import { guests, images, picks, products } from '../server/db/schema'
 import { databaseFile, dataDirectory, wipeData } from './lib/data'
 
 type Rgb = [number, number, number]
@@ -183,7 +180,6 @@ async function main() {
 
   const reset = process.argv.includes('--reset')
   const directory = dataDirectory()
-  const uploads = join(directory, 'uploads')
   const db = openDatabase(directory)
 
   console.log(`Database: ${databaseFile(directory)}`)
@@ -200,24 +196,22 @@ async function main() {
   }
 
   if (reset) {
-    const removed = await wipeData(db, directory)
+    const removed = wipeData(db)
     console.log(
       `Reset: deleted ${removed.products} product(s), ${removed.guests} guest(s), ${removed.picks} pick(s) and ${removed.images} image(s).`,
     )
   }
 
-  await mkdir(uploads, { recursive: true })
-  const images = new Map<ImageKind, string>()
-  const imageFor = async (kind: ImageKind) => {
-    let path = images.get(kind)
-    if (!path) {
-      const name = `${randomBytes(16).toString('hex')}.png`
+  const imageIds = new Map<ImageKind, number>()
+  const imageIdFor = (kind: ImageKind) => {
+    let id = imageIds.get(kind)
+    if (id === undefined) {
       const [width, height] = [480, 528] // same proportions as the arch frames
-      await writeFile(join(uploads, name), encodePng(width, height, (x, y) => PAINTERS[kind](x, y, width, height)))
-      path = `/uploads/${name}`
-      images.set(kind, path)
+      const data = encodePng(width, height, (x, y) => PAINTERS[kind](x, y, width, height))
+      id = db.insert(images).values({ data, contentType: 'image/png' }).returning({ id: images.id }).get().id
+      imageIds.set(kind, id)
     }
-    return path
+    return id
   }
 
   const guestIds = new Map<string, number>()
@@ -234,7 +228,7 @@ async function main() {
         description: item.description ?? null,
         link: item.link ?? null,
         price: item.price ?? null,
-        image: item.image ? await imageFor(item.image) : null,
+        imageId: item.image ? imageIdFor(item.image) : null,
       })
       .returning({ id: products.id })
       .get()
@@ -252,7 +246,7 @@ async function main() {
     }
   }
 
-  console.log(`Seeded ${PRODUCTS.length} products, ${GUESTS.length} guests, ${pickCount} picks and ${images.size} pictures.`)
+  console.log(`Seeded ${PRODUCTS.length} products, ${GUESTS.length} guests, ${pickCount} picks and ${imageIds.size} pictures.`)
   console.log('Start the app with "npm run dev" (no restart needed if it is already running).')
 }
 

@@ -44,7 +44,7 @@ export function loadProducts(viewerGuestId?: number): PublicProduct[] {
       description: product.description,
       link: product.link,
       price: product.price,
-      image: product.image,
+      image: product.imageId ? imageUrl(product.imageId) : product.imageUrl,
       totalQuantity: productPicks.reduce((sum, pick) => sum + pick.quantity, 0),
       picks: productPicks,
     }

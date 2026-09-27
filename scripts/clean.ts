@@ -1,5 +1,6 @@
 /**
- * Empties the database: deletes ALL products, guests, picks and uploaded product images (the tables stay).
+ * Empties the database: deletes ALL products, guests, picks and product photos (the tables stay). The hero
+ * image, if you set one, is kept — it is a deliberate setting, not sample data.
  *
  *   npm run db:clean             shows what would be deleted and asks you to type "delete"
  *   npm run db:clean -- --yes    skips the question (for scripts)
@@ -24,14 +25,14 @@ async function main() {
   }
 
   const db = openDatabase(directory)
-  const counts = await countData(db, directory)
+  const counts = countData(db)
   if (counts.products === 0 && counts.guests === 0 && counts.picks === 0 && counts.images === 0) {
     console.log('Already clean, nothing to delete.')
     return
   }
 
   console.log(
-    `This will permanently delete ${counts.products} product(s), ${counts.guests} guest(s), ${counts.picks} pick(s) and ${counts.images} uploaded image(s).`,
+    `This will permanently delete ${counts.products} product(s), ${counts.guests} guest(s), ${counts.picks} pick(s) and ${counts.images} product photo(s).`,
   )
 
   if (!process.argv.includes('--yes')) {
@@ -50,7 +51,7 @@ async function main() {
     }
   }
 
-  await wipeData(db, directory)
+  wipeData(db)
   console.log('Done. The database is empty.')
 }
 

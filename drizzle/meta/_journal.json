@@ -15,6 +15,13 @@
       "when": 1790362966699,
       "tag": "0001_guest_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790502048244,
+      "tag": "0002_image_blobs",
+      "breakpoints": true
     }
   ]
 }

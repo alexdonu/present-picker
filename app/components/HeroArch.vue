@@ -1,26 +1,29 @@
-<!-- Decorative arch with a setting sun, and a round stamp pinned to its corner. -->
+<!-- The arch: an admin-configured photo when there is one (see /admin/aspect), otherwise a decorative sunset. -->
+<!-- Always topped with a round stamp pinned to its corner. -->
+<script setup lang="ts">
+defineProps<{ imageUrl?: string | null }>()
+</script>
+
 <template>
-  <!--
-    The page lays this out in a grid, where `self-center` would only centre it vertically: `justify-self-center`
-    centres it horizontally (on phones and tablets it sits alone in its row). On very narrow screens the width
-    shrinks to fit instead of overflowing.
-  -->
   <div class="relative w-[min(300px,100%)] justify-self-center pt-7 sm:w-[360px] xl:w-[460px] xl:pt-10">
     <svg viewBox="0 0 460 600" class="block h-auto w-full" aria-hidden="true" focusable="false">
       <defs>
         <clipPath id="hero-arch"><path d="M0 600V230A230 230 0 0 1 460 230V600Z" /></clipPath>
       </defs>
       <g clip-path="url(#hero-arch)">
-        <rect x="0" y="0" width="460" height="600" fill="var(--color-forest)" />
-        <path
-          d="M230 600L927 539M230 600L912 443M230 600L884 349M230 600L842 261M230 600L789 179M230 600L725 105M230 600L651 41M230 600L569 -12M230 600L481 -54M230 600L387 -82M230 600L291 -97M230 600L193 -99M230 600L96 -87M230 600L2 -62M230 600L-88 -24M230 600L-172 27M230 600L-247 88M230 600L-314 159M230 600L-370 239M230 600L-414 326M230 600L-446 419M230 600L-465 515"
-          stroke="var(--color-paper)"
-          stroke-width="1.6"
-          opacity="0.35"
-        />
-        <circle cx="230" cy="600" r="104" fill="var(--color-sun)" />
-        <circle cx="230" cy="600" r="136" fill="none" stroke="var(--color-sun)" stroke-width="1.8" opacity="0.7" />
-        <circle cx="230" cy="600" r="168" fill="none" stroke="var(--color-sun)" stroke-width="1.8" opacity="0.45" />
+        <image v-if="imageUrl" :href="imageUrl" x="0" y="0" width="460" height="600" preserveAspectRatio="xMidYMid slice" />
+        <template v-else>
+          <rect x="0" y="0" width="460" height="600" fill="var(--color-forest)" />
+          <path
+            d="M230 600L927 539M230 600L912 443M230 600L884 349M230 600L842 261M230 600L789 179M230 600L725 105M230 600L651 41M230 600L569 -12M230 600L481 -54M230 600L387 -82M230 600L291 -97M230 600L193 -99M230 600L96 -87M230 600L2 -62M230 600L-88 -24M230 600L-172 27M230 600L-247 88M230 600L-314 159M230 600L-370 239M230 600L-414 326M230 600L-446 419M230 600L-465 515"
+            stroke="var(--color-paper)"
+            stroke-width="1.6"
+            opacity="0.35"
+          />
+          <circle cx="230" cy="600" r="104" fill="var(--color-sun)" />
+          <circle cx="230" cy="600" r="136" fill="none" stroke="var(--color-sun)" stroke-width="1.8" opacity="0.7" />
+          <circle cx="230" cy="600" r="168" fill="none" stroke="var(--color-sun)" stroke-width="1.8" opacity="0.45" />
+        </template>
       </g>
       <path d="M18 600V232A212 212 0 0 1 442 232V600" fill="none" stroke="var(--color-paper)" stroke-width="1.4" opacity="0.5" />
     </svg>
