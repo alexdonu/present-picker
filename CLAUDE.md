@@ -30,6 +30,7 @@ Nuxt 4 app (Vue 3, Nitro, Tailwind 4) where guests pick housewarming gifts. SQLi
 - **Production starts with an empty database**: `data/` and `.env` are git-ignored and the app creates the tables itself. `db:seed` refuses to run when `NODE_ENV=production` (set in the server's `.env`), so sample data cannot reach the real database. Do not weaken that guard.
 - Migrations are read from `./drizzle` relative to the working directory, so start the server from the project root.
 - Uploaded images are validated by their magic bytes (`server/utils/images.ts`), not by the browser-reported type or file extension.
+- **Container**: `Containerfile` builds the production image; a push to `main` builds it, pushes it to Harbor and deploys it (`.github/workflows/build-and-deploy.yml`). The image copies `drizzle/` next to `.output` (Nitro does not bundle it) and keeps data in `/app/data`, which must be a volume. Its `HEALTHCHECK` calls `/api/health`, which checks the database (integrity plus a read from every table), not just the process; build with `--format docker` or podman drops it. The build stage compiles better-sqlite3 when no prebuilt binary matches the Node version. `.containerignore` keeps `data/` and `.env` out of the image.
 
 ## Commands
 

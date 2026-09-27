@@ -1,0 +1,35 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Typecheck is NOT run here — run `npm run typecheck` locally before every commit.
+#
+# This workflow builds, publishes AND deploys, so a push to main reaches production with
+# nothing in between. A skipped local check does not surface on a developer's
+# screen; it surfaces as a deployment. Treat skipping one as a bug.
+jobs:
+  build-and-push:
+    runs-on: nickmessing-runner
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Harbor
+        run: echo "$HARBOR_PASSWORD" | podman login harbor.nickmessing.com -u "$HARBOR_USERNAME" --password-stdin
+        env:
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+
+      # --format docker: podman's default OCI format drops the Containerfile HEALTHCHECK
+      - name: Build container image
+        run: podman build --format docker -f Containerfile -t harbor.nickmessing.com/library/present-picker:${{ github.sha }} -t harbor.nickmessing.com/library/present-picker:latest .
+
+      - name: Push image
+        run: |
+          podman push harbor.nickmessing.com/library/present-picker:${{ github.sha }}
+          podman push harbor.nickmessing.com/library/present-picker:latest
+
+      - name: Deploy
+        run: deploy present-picker
