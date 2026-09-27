@@ -19,6 +19,8 @@ const hasDetails = Boolean(event.when || event.where || event.rsvpBy)
       <NuxtLink to="/#cadouri" class="flex min-h-11 items-center">Cadouri<span class="sm:hidden">&nbsp;→</span></NuxtLink>
       <NuxtLink to="/#cum-merge" class="hidden sm:block">Cum merge</NuxtLink>
       <NuxtLink v-if="hasDetails" to="/#detalii" class="hidden sm:block">Petrecerea</NuxtLink>
+      <!-- For the hosts, not the guests: quiet on purpose (muted colour, no arrow) — the password is the real gate. -->
+      <NuxtLink to="/admin" class="flex min-h-11 items-center text-ink-soft">Admin</NuxtLink>
     </div>
   </nav>
 </template>
