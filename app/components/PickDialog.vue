@@ -23,6 +23,16 @@ const product = computed(() => props.products.find((candidate) => candidate.id =
 const mine = computed(() => product.value?.picks.find((pick) => pick.mine))
 /** The need is fully covered: nobody (not even someone who already picked it) can pick more. */
 const isFull = computed(() => product.value?.neededQuantity != null && product.value.totalQuantity >= product.value.neededQuantity)
+/** How many more can be picked before the need is covered; undefined when the product has no limit. */
+const remaining = computed(() => {
+  if (!product.value || product.value.neededQuantity == null) return undefined
+  return Math.max(0, product.value.neededQuantity - product.value.totalQuantity)
+})
+const maxQuantity = computed(() => Math.min(MAX_PICK_QUANTITY, remaining.value ?? MAX_PICK_QUANTITY))
+// If someone else picks in the meantime and shrinks how much room is left, do not leave the stepper above it.
+watch(maxQuantity, (max) => {
+  if (quantity.value > max) quantity.value = max
+})
 
 const quantity = ref(1)
 const note = ref('')
@@ -154,8 +164,11 @@ defineExpose({ open })
           <div class="flex items-center gap-4" role="group" aria-labelledby="quantity-label">
             <button type="button" class="btn btn-icon" aria-label="Mai puține" :disabled="quantity <= 1" @click="quantity--">−</button>
             <output class="min-w-8 text-center font-display text-4xl" aria-live="polite">{{ quantity }}</output>
-            <button type="button" class="btn btn-icon" aria-label="Mai multe" :disabled="quantity >= MAX_PICK_QUANTITY" @click="quantity++">+</button>
+            <button type="button" class="btn btn-icon" aria-label="Mai multe" :disabled="quantity >= maxQuantity" @click="quantity++">+</button>
           </div>
+          <p v-if="remaining !== undefined && remaining < MAX_PICK_QUANTITY" class="mt-2 text-sm text-ink-soft">
+            Mai {{ remaining === 1 ? 'e necesară' : 'sunt necesare' }} {{ remaining }} {{ remaining === 1 ? 'bucată' : 'bucăți' }}.
+          </p>
         </div>
 
         <div>

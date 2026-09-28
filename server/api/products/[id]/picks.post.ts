@@ -22,8 +22,17 @@ export default defineEventHandler(async (event) => {
       .where(eq(picks.productId, productId))
       .all()
       .reduce((sum, pick) => sum + pick.quantity, 0)
-    if (pickedSoFar >= product.neededQuantity) {
+    const remaining = product.neededQuantity - pickedSoFar
+    if (remaining <= 0) {
       throw createError({ statusCode: 409, message: 'Nevoia pentru acest cadou este deja acoperită.' })
+    }
+    // Reject outright rather than silently capping the quantity: the guest asked for a specific number, and
+    // capping it without saying so would leave them thinking they got what they asked for.
+    if (input.quantity > remaining) {
+      throw createError({
+        statusCode: 409,
+        message: remaining === 1 ? 'Mai este necesară doar 1 bucată.' : `Mai sunt necesare doar ${remaining} bucăți.`,
+      })
     }
   }
 
