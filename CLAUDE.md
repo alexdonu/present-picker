@@ -20,6 +20,10 @@ Nuxt 4 app (Vue 3, Nitro, Tailwind 4) where guests pick housewarming gifts. SQLi
 - The page must always show, in very large type, that buying a gift is not mandatory and that being there matters most (`NoObligationStatement.vue`).
 - **Images (product photos, the hero image) live in the database**, as blob rows in the `images` table — not as files — so a single `.db` file is the whole backup. `server/utils/images.ts` (`saveImage`/`deleteImage`/`imageUrl`) handles storing and naming them; `server/api/images/[id].get.ts` serves them with a far-future cache header (an id's bytes never change — a replacement is always a new row). A product has `imageId` (an upload) or `imageUrl` (a pasted remote address), never both. The hero image is a site-wide setting (`settings` table, one row, id 1; `/admin/aspect`, `GET /api/settings`), not tied to any product; `HeroArch.vue` shows it clipped into the arch shape (`<image>` inside the existing `clipPath`) instead of the decorative sunset when one is set.
 
+## MIC2 webhook playground (not part of the party)
+
+The deployed app doubles as a proof-of-concept CRM for the MIC2 Donation webhook (ticket M1C-1989, work repo `~/projects/mic2`). It is written from the receiver contract only, never from MIC2's code. `POST /api/mic2/webhook` (public, verified by HMAC) receives; `/admin/mic2` (admin password) shows what arrived, takes the signing secret and switches the answer mode (ok / error / slow / redirect). Logic: `server/utils/mic2-webhook.ts`. Its data lives in its own `mic2-webhook.db` next to the party database (not Drizzle, not in the health check, not touched by the seed/clean scripts), because the payloads hold other people's names; rows older than 30 days are deleted automatically. Remove the whole thing by deleting those files and that db.
+
 ## Gotchas
 
 - Typed Nitro routes hit "Excessive stack depth" on `$fetch` with template-literal URLs; pass the URL as a `string` variable (see `app/pages/admin/index.vue`).
