@@ -42,9 +42,12 @@ export default defineNuxtConfig({
     },
   },
 
-  // Private values. Override with NUXT_ADMIN_PASSWORD, NUXT_SESSION_SECRET, NUXT_DATA_DIR.
+  // Private values. Override with NUXT_ADMIN_PASSWORD, NUXT_SESSION_SECRET, NUXT_DATA_DIR,
+  // NUXT_MIC2_LOGIN and NUXT_MIC2_PASSWORD (access to the MIC2 webhook playground only).
   runtimeConfig: {
     adminPassword: '',
+    mic2Login: '',
+    mic2Password: '',
     sessionSecret: '',
     dataDir: './data',
   },

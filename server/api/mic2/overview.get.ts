@@ -1,4 +1,4 @@
-// Everything the /admin/mic2 page shows. The signing secret itself is never sent back, only its last 4 characters.
+// Everything the /admin/mic2 page shows (protected by server/middleware/mic2-auth.ts). The signing secret itself is never sent back, only its last 4 characters.
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   const { mode, secret } = receiverSettings()

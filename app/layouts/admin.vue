@@ -13,7 +13,7 @@ async function logout() {
         <NuxtLink to="/admin" class="flex min-h-9 items-center" active-class="underline underline-offset-4" exact-active-class="underline underline-offset-4">Produse</NuxtLink>
         <NuxtLink to="/admin/guests" class="flex min-h-9 items-center" active-class="underline underline-offset-4">Invitați</NuxtLink>
         <NuxtLink to="/admin/aspect" class="flex min-h-9 items-center" active-class="underline underline-offset-4">Aspect</NuxtLink>
-        <NuxtLink to="/admin/mic2" class="flex min-h-9 items-center text-ink-soft" active-class="underline underline-offset-4">Webhook MIC2</NuxtLink>
+        <NuxtLink to="/admin/mic2" class="flex min-h-9 items-center text-ink-soft" active-class="underline underline-offset-4">MIC2 webhook</NuxtLink>
         <NuxtLink to="/" class="flex min-h-9 items-center">Pagina invitaților</NuxtLink>
         <button type="button" class="mono-label flex min-h-9 cursor-pointer items-center underline underline-offset-4 hover:text-burgundy" @click="logout">Deconectare</button>
       </div>

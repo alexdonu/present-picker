@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
   const duplicate = known && eventId ? storeEvent(eventType!, payload, rawBody.toString('utf8'), receivedAt) : false
 
   if (mode === 'slow') {
-    log(`200 după ${SLOW_ANSWER_MS / 1000} s`, { eventId, duplicate })
+    log(`200 after ${SLOW_ANSWER_MS / 1000} s`, { eventId, duplicate })
     await new Promise(resolve => setTimeout(resolve, SLOW_ANSWER_MS))
   }
   else {
