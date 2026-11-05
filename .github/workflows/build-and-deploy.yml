@@ -3,33 +3,93 @@ name: Build and Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
-# Typecheck is NOT run here — run `npm run typecheck` locally before every commit.
-#
-# This workflow builds, publishes AND deploys, so a push to main reaches production with
-# nothing in between. A skipped local check does not surface on a developer's
-# screen; it surfaces as a deployment. Treat skipping one as a bug.
+# A push to main reaches production with nothing in between, so typecheck gates the deploy.
+# Deploys never run in parallel; a newer push waits for the running one instead of cancelling it mid-way.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
-  build-and-push:
-    runs-on: nickmessing-runner
+  deploy:
+    runs-on: ubuntu-24.04
     environment: Production
+    env:
+      IMAGE: present-picker:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to Harbor
-        run: echo "$HARBOR_PASSWORD" | podman login harbor.nickmessing.com -u "$HARBOR_USERNAME" --password-stdin
-        env:
-          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
-          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
 
-      # --format docker: podman's default OCI format drops the Containerfile HEALTHCHECK
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Docker keeps the Containerfile HEALTHCHECK (podman's OCI format would drop it).
       - name: Build container image
-        run: podman build --format docker -f Containerfile -t harbor.nickmessing.com/library/present-picker:${{ github.sha }} -t harbor.nickmessing.com/library/present-picker:latest .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          tags: ${{ env.IMAGE }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Push image
+      - name: Set up SSH
         run: |
-          podman push harbor.nickmessing.com/library/present-picker:${{ github.sha }}
-          podman push harbor.nickmessing.com/library/present-picker:latest
+          install -d -m 700 ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName $DEPLOY_HOST
+            User deploy
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+          EOF
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
 
-      - name: Deploy
-        run: deploy present-picker
+      # No registry: the image goes straight to the server's Docker.
+      - name: Upload image and stack
+        run: |
+          docker save "$IMAGE" | gzip | ssh prod 'gunzip | docker load'
+          scp deploy/compose.yml deploy/Caddyfile prod:/opt/present-picker/
+
+      - name: Start
+        run: |
+          # shellcheck disable=SC2029 # $IMAGE is meant to expand here, on the runner
+          ssh prod "cd /opt/present-picker \
+            && docker tag $IMAGE present-picker:latest \
+            && docker compose up -d --remove-orphans"
+
+      # Waits for the Containerfile HEALTHCHECK (/api/health checks the database), so a broken release fails the run.
+      - name: Wait until healthy
+        run: |
+          ssh prod 'cd /opt/present-picker
+            for i in $(seq 1 30); do
+              status=$(docker inspect -f "{{.State.Health.Status}}" "$(docker compose ps -q app)")
+              echo "app: $status"
+              [ "$status" = healthy ] && exit 0
+              [ "$status" = unhealthy ] && break
+              sleep 5
+            done
+            docker compose logs --tail 100 app
+            exit 1'
+
+      # Older releases stay for 14 days, for a manual rollback (docker tag present-picker:<sha> present-picker:latest).
+      - name: Clean up old images
+        if: always()
+        run: ssh prod 'docker image prune -af --filter "until=336h"' || true

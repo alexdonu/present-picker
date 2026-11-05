@@ -1,0 +1,7 @@
+# HTTPS in front of the app. SITE_ADDRESS (in /opt/present-picker/.env) is the public host name: a real
+# domain pointed at the server, or <ip-with-dashes>.sslip.io until there is one. Caddy gets the certificate
+# itself and sends X-Forwarded-Proto, which the app uses to mark its cookies Secure.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

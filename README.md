@@ -94,6 +94,34 @@ npm start
 - Pune în față un reverse proxy cu HTTPS (Caddy, nginx, Cloudflare Tunnel etc.). Cookie-urile devin `Secure` automat când conexiunea este HTTPS.
 - Copia de siguranță înseamnă să salvezi fișierul `data/present-picker.db` — pozele sunt în el, nu în fișiere separate.
 
+## Producția: Kamatera + GitHub Actions
+
+Fiecare push pe `main` rulează [`.github/workflows/build-and-deploy.yml`](.github/workflows/build-and-deploy.yml): `npm run typecheck`, construiește imaginea din `Containerfile`, o trimite prin SSH direct în Docker-ul serverului (fără registry), pornește `deploy/compose.yml` (aplicația + Caddy pentru HTTPS) și așteaptă ca `/api/health` să răspundă. Dacă un pas pică, versiunea veche rămâne pornită sau rularea apare cu roșu în *Actions*.
+
+Pe server totul stă în `/opt/present-picker`: `.env` (secretele), `data/` (baza de date, deci și copia de siguranță), `compose.yml` și `Caddyfile` (urcate de workflow).
+
+**Configurare o singură dată:**
+
+1. În Kamatera: *Create New Server*, imagine **Ubuntu 24.04**, 1 vCPU, 1–2 GB RAM, 20 GB disc, o locație din Europa (de ex. Frankfurt), cu cheia ta SSH publică (`~/.ssh/id_ed25519.pub`).
+2. O cheie doar pentru deploy, pe calculatorul tău:
+
+   ```bash
+   ssh-keygen -t ed25519 -N "" -C github-deploy -f ~/.ssh/present-picker-deploy
+   ```
+
+3. Pregătește serverul (înlocuiește `IP`); la final afișează adresa site-ului și parola de admin generată:
+
+   ```bash
+   scp deploy/bootstrap.sh root@IP: && ssh root@IP bash bootstrap.sh "'$(cat ~/.ssh/present-picker-deploy.pub)'"
+   ```
+
+4. Secretele din GitHub (*Settings → Environments → Production*): `DEPLOY_HOST` = IP-ul, `DEPLOY_SSH_KEY` = conținutul lui `~/.ssh/present-picker-deploy`, `DEPLOY_KNOWN_HOSTS` = ieșirea lui `ssh-keyscan -t ed25519 IP`.
+5. Un push pe `main` (sau *Actions → Build and Deploy → Run workflow*).
+
+Până ai un domeniu, site-ul este la `https://<ip-cu-liniuțe>.sslip.io`. Pentru un domeniu propriu: un record DNS `A` către IP, apoi `SITE_ADDRESS=domeniul.tău` în `/opt/present-picker/.env` și `docker compose up -d` în acel folder.
+
+**Întoarcere la o versiune anterioară** (imaginile vechi rămân 14 zile): `docker tag present-picker:<sha-commit> present-picker:latest && docker compose up -d` în `/opt/present-picker`.
+
 ## Prima punere în producție, cu baza de date curată
 
 Baza de date pornește **goală** pe orice server nou: `data/` (baza și pozele) și `.env` sunt în `.gitignore`, deci nu ajung niciodată în git, iar la prima pornire aplicația își creează singură tabelele, fără niciun rând. Pași:
