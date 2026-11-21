@@ -171,6 +171,144 @@ export function receiverOverview(limit = 100) {
   }
 }
 
+/** Charts bucket and label time in the collections' own time zone (iDEAL, "collecte": Dutch), whoever is viewing. */
+export const STATS_TIME_ZONE = 'Europe/Amsterdam'
+const HOUR_MS = 3_600_000
+/** Up to this many hours the timeline shows one bar per hour, beyond it one bar per day. */
+const HOURLY_TIMELINE_LIMIT = 72
+/** Lower bounds (cents) of the amount ranges. Donations are mostly round sums, so each common sum starts a range. */
+const AMOUNT_RANGES = [0, 200, 300, 500, 1000, 2000, 2500, 5000, 10000]
+const TOP_VOLUNTEERS = 10
+
+// Fields of a stored payload, as SQL. Business figures count donation.paid only; donation.test is left out.
+const PAID = `FROM events WHERE event_type = 'donation.paid'`
+const AMOUNT = `json_extract(payload, '$.amount.value')`
+const ADMIN_COSTS = `coalesce(json_extract(payload, '$.adminCosts.value'), 0)`
+const OCCURRED = `coalesce(occurred_at, first_received_at)`
+/** Seconds between the donation and the first delivery that reached us; null without occurredAt. */
+const LAG = `(julianday(first_received_at) - julianday(occurred_at)) * 86400`
+
+type Group = { key: string | null, count: number, amount: number }
+type HourRow = { hour: string, count: number, amount: number, lagSum: number | null, lagCount: number, lagMax: number | null }
+
+const amsterdamDay = new Intl.DateTimeFormat('en-CA', { timeZone: STATS_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/**
+ * One bucket per hour (or per Amsterdam day when the data spans more than HOURLY_TIMELINE_LIMIT hours), from the
+ * first donation up to now, quiet periods included as zeros. SQL groups by UTC hour; Amsterdam's offset is a whole
+ * number of hours, so those hours are also its local hours and only days need regrouping.
+ */
+function buildTimeline(rows: HourRow[], now: Date) {
+  if (!rows.length) return { unit: 'hour' as const, buckets: [] }
+  const byHour = new Map(rows.map(r => [Date.parse(r.hour), r]))
+  const first = Date.parse(rows[0]!.hour)
+  const last = Math.max(Date.parse(rows.at(-1)!.hour), Math.floor(now.getTime() / HOUR_MS) * HOUR_MS)
+  const unit = (last - first) / HOUR_MS + 1 <= HOURLY_TIMELINE_LIMIT ? 'hour' as const : 'day' as const
+
+  const buckets = new Map<string, { start: string, count: number, amount: number, lagSum: number, lagCount: number, lagMax: number | null }>()
+  for (let t = first; t <= last; t += HOUR_MS) {
+    const key = unit === 'hour' ? String(t) : amsterdamDay.format(t)
+    let bucket = buckets.get(key)
+    if (!bucket) buckets.set(key, (bucket = { start: new Date(t).toISOString(), count: 0, amount: 0, lagSum: 0, lagCount: 0, lagMax: null }))
+    const row = byHour.get(t)
+    if (!row) continue
+    bucket.count += row.count
+    bucket.amount += row.amount
+    bucket.lagSum += row.lagSum ?? 0
+    bucket.lagCount += row.lagCount
+    if (row.lagMax !== null) bucket.lagMax = Math.max(bucket.lagMax ?? row.lagMax, row.lagMax)
+  }
+  return {
+    unit,
+    buckets: [...buckets.values()].map(({ lagSum, lagCount, ...b }) => ({ ...b, lagAverage: lagCount ? lagSum / lagCount : null })),
+  }
+}
+
+/** Everything the charts on /admin/mic2 show, added up from the stored events and deliveries (all amounts in cents). */
+export function receiverStats(now = new Date()) {
+  pruneOldRows()
+  const db = useMic2Db()
+  const all = <T>(sql: string, ...params: unknown[]) => db.prepare(sql).all(...params) as T[]
+  const one = <T>(sql: string, ...params: unknown[]) => db.prepare(sql).get(...params) as T
+
+  const totals = one<{ count: number, gross: number, adminCosts: number, volunteers: number, anonymous: number, campaigns: number, currency: string | null }>(
+    `SELECT count(*) AS count, coalesce(sum(${AMOUNT}), 0) AS gross, coalesce(sum(${ADMIN_COSTS}), 0) AS adminCosts,
+      count(DISTINCT json_extract(payload, '$.volunteer.id')) AS volunteers,
+      coalesce(sum(json_extract(payload, '$.isAnonymous') = 1), 0) AS anonymous,
+      count(DISTINCT json_extract(payload, '$.campaign.id')) AS campaigns,
+      max(json_extract(payload, '$.amount.currency')) AS currency ${PAID}`)
+
+  // Median: the middle value, or the mean of the two middle values.
+  const middle = all<{ v: number }>(`SELECT ${AMOUNT} AS v ${PAID} ORDER BY v LIMIT ? OFFSET ?`,
+    totals.count % 2 ? 1 : 2, Math.max(0, Math.floor((totals.count - 1) / 2)))
+  const median = middle.length ? middle.reduce((sum, r) => sum + r.v, 0) / middle.length : null
+
+  const lastHour = one<{ count: number, amount: number }>(
+    `SELECT count(*) AS count, coalesce(sum(${AMOUNT}), 0) AS amount ${PAID} AND julianday(${OCCURRED}) >= julianday(?)`,
+    new Date(now.getTime() - HOUR_MS).toISOString())
+
+  const hours = all<HourRow>(`SELECT strftime('%Y-%m-%dT%H:00:00Z', ${OCCURRED}) AS hour, count(*) AS count,
+      sum(${AMOUNT}) AS amount, sum(${LAG}) AS lagSum, count(${LAG}) AS lagCount, max(${LAG}) AS lagMax
+    ${PAID} GROUP BY hour ORDER BY hour`)
+
+  const groupBy = (path: string) => all<Group>(`SELECT json_extract(payload, '${path}') AS key, count(*) AS count,
+      sum(${AMOUNT}) AS amount ${PAID} GROUP BY key ORDER BY amount DESC`)
+
+  const campaigns = all<{ id: string | null, name: string | null, type: string | null, count: number, amount: number }>(
+    `SELECT json_extract(payload, '$.campaign.id') AS id, max(json_extract(payload, '$.campaign.name')) AS name,
+      max(json_extract(payload, '$.campaign.type')) AS type, count(*) AS count, sum(${AMOUNT}) AS amount
+    ${PAID} GROUP BY id ORDER BY amount DESC`)
+
+  const amountRanges = AMOUNT_RANGES.map((min, i) => ({ min, max: AMOUNT_RANGES[i + 1] ?? null, count: 0, amount: 0 }))
+  for (const { v, n } of all<{ v: number, n: number }>(`SELECT ${AMOUNT} AS v, count(*) AS n ${PAID} GROUP BY v`)) {
+    const range = amountRanges.findLast(r => v >= r.min) ?? amountRanges[0]!
+    range.count += n
+    range.amount += v * n
+  }
+
+  const volunteers = all<{ name: string | null, count: number, amount: number }>(
+    `SELECT max(json_extract(payload, '$.volunteer.name')) AS name, count(*) AS count, sum(${AMOUNT}) AS amount
+    ${PAID} AND json_extract(payload, '$.volunteer.id') IS NOT NULL
+    GROUP BY json_extract(payload, '$.volunteer.id') ORDER BY amount DESC`)
+  const others = volunteers.slice(TOP_VOLUNTEERS)
+  const withoutVolunteer = one<{ count: number, amount: number }>(`SELECT count(*) AS count, coalesce(sum(${AMOUNT}), 0) AS amount
+    ${PAID} AND json_extract(payload, '$.volunteer.id') IS NULL`)
+
+  // Webhook health covers every delivery and event, test events included: it is about the transport, not the money.
+  const lags = one<{ count: number, average: number | null, max: number | null, overMinute: number }>(
+    `SELECT count(${LAG}) AS count, avg(${LAG}) AS average, max(${LAG}) AS max, coalesce(sum(${LAG} > 60), 0) AS overMinute FROM events`)
+  const p95 = lags.count
+    ? one<{ v: number }>(`SELECT ${LAG} AS v FROM events WHERE occurred_at IS NOT NULL ORDER BY v LIMIT 1 OFFSET ?`,
+        Math.floor(0.95 * (lags.count - 1))).v
+    : null
+  const eventCounts = one<{ retried: number, tests: number }>(
+    `SELECT coalesce(sum(times_received > 1), 0) AS retried, coalesce(sum(event_type = 'donation.test'), 0) AS tests FROM events`)
+
+  return {
+    timeZone: STATS_TIME_ZONE,
+    currency: totals.currency ?? 'EUR',
+    totals: { ...totals, net: totals.gross - totals.adminCosts, average: totals.count ? totals.gross / totals.count : null, median, lastHour },
+    timeline: buildTimeline(hours, now),
+    campaigns,
+    amountRanges,
+    sources: groupBy('$.source'),
+    paymentMethods: groupBy('$.paymentMethod'),
+    volunteers: {
+      top: volunteers.slice(0, TOP_VOLUNTEERS),
+      others: { volunteers: others.length, count: others.reduce((s, v) => s + v.count, 0), amount: others.reduce((s, v) => s + v.amount, 0) },
+      withoutVolunteer,
+    },
+    health: {
+      deliveries: one<{ total: number, duplicates: number }>(
+        'SELECT count(*) AS total, coalesce(sum(duplicate), 0) AS duplicates FROM deliveries'),
+      answers: all<{ key: string, count: number }>('SELECT answer AS key, count(*) AS count FROM deliveries GROUP BY key ORDER BY count DESC'),
+      signatures: all<{ key: string, count: number }>('SELECT signature AS key, count(*) AS count FROM deliveries GROUP BY key ORDER BY count DESC'),
+      ...eventCounts,
+      lag: { average: lags.average, p95, max: lags.max, overMinute: lags.overMinute },
+    },
+  }
+}
+
 export function clearReceiverData() {
   const db = useMic2Db()
   db.exec('DELETE FROM deliveries; DELETE FROM events;')

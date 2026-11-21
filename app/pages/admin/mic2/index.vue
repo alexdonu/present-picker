@@ -59,7 +59,9 @@ const SIGNATURE_LABELS: Record<string, string> = {
   'no-secret': 'no secret saved',
 }
 
-const { data, refresh } = await useFetch<Overview>('/api/mic2/overview')
+const { data, refresh: refreshOverview } = await useFetch<Overview>('/api/mic2/overview')
+const { data: stats, refresh: refreshStats } = await useFetch('/api/mic2/stats')
+const refresh = () => Promise.all([refreshOverview(), refreshStats()])
 
 const webhookUrl = ref('')
 onMounted(() => (webhookUrl.value = `${window.location.origin}/api/mic2/webhook`))
@@ -116,6 +118,167 @@ function donorLabel(payload: Payload) {
   if (payload.donor?.name) return payload.donor.name
   return payload.isAnonymous ? 'anonymous (chose to be)' : 'no name (not asked)'
 }
+
+// --- Charts (from /api/mic2/stats; amounts in cents, times in the collections' time zone) ---
+
+const SOURCE_LABELS: Record<string, string> = {
+  mobile: 'Mobile link',
+  qr_can: 'QR code on a collection can',
+  qr_board: 'QR code on a board',
+}
+const METHOD_LABELS: Record<string, string> = {
+  ideal: 'iDEAL',
+  mastercard: 'Mastercard',
+  visa: 'Visa',
+  bancontact: 'Bancontact',
+  paypal: 'PayPal',
+  applepay: 'Apple Pay',
+}
+
+const cents = (value: number | null | undefined) =>
+  value == null ? '—' : (value / 100).toLocaleString('en-GB', { style: 'currency', currency: stats.value?.currency ?? 'EUR' })
+const shortEuro = (value: number) => `€${value % 100 ? (value / 100).toFixed(2) : value / 100}`
+const count = (value: number) => value.toLocaleString('en-GB')
+function percent(part: number, whole: number) {
+  if (!whole) return '—'
+  const value = (part / whole) * 100
+  return part && value < 1 ? '<1%' : `${Math.round(value)}%`
+}
+
+function seconds(value: number | null | undefined) {
+  if (value == null) return '—'
+  if (Math.abs(value) < 60) return `${value.toFixed(1)} s`
+  const minutes = Math.floor(value / 60)
+  if (minutes < 60) return `${minutes} min ${Math.round(value % 60)} s`
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+}
+
+const zoned = (options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone: stats.value?.timeZone, ...options })
+
+/** Axis and tooltip formats for the timeline's buckets, hourly or daily. */
+const bucketFormats = computed(() => {
+  const hourly = stats.value?.timeline.unit !== 'day'
+  return {
+    hourly,
+    axis: zoned(hourly ? { weekday: 'short', hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short' }),
+    title: zoned(hourly
+      ? { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+      : { weekday: 'short', day: 'numeric', month: 'short' }),
+  }
+})
+
+const timelinePoints = computed(() => {
+  let running = 0
+  return (stats.value?.timeline.buckets ?? []).map((bucket) => {
+    running += bucket.amount
+    const start = new Date(bucket.start)
+    return {
+      key: bucket.start,
+      axis: bucketFormats.value.axis.format(start),
+      title: `${bucketFormats.value.title.format(start)}: ${count(bucket.count)} donations, ${cents(bucket.amount)} (total so far ${cents(running)})`,
+      value: bucket.count,
+      line: running,
+    }
+  })
+})
+
+const lagPoints = computed(() =>
+  (stats.value?.timeline.buckets ?? []).map((bucket) => {
+    const start = new Date(bucket.start)
+    return {
+      key: bucket.start,
+      axis: bucketFormats.value.axis.format(start),
+      title: bucket.lagMax === null
+        ? `${bucketFormats.value.title.format(start)}: no donations`
+        : `${bucketFormats.value.title.format(start)}: slowest ${seconds(bucket.lagMax)}, average ${seconds(bucket.lagAverage)}`,
+      value: Math.max(0, bucket.lagMax ?? 0),
+    }
+  }))
+
+const overviewTiles = computed(() => {
+  const t = stats.value?.totals
+  if (!t) return []
+  return [
+    { label: 'Raised', value: cents(t.gross), note: `${count(t.count)} donations` },
+    { label: 'Net after admin costs', value: cents(t.net), note: `${cents(t.adminCosts)} admin costs` },
+    { label: 'Average gift', value: cents(t.average), note: `median ${cents(t.median)}` },
+    { label: 'Last hour', value: cents(t.lastHour.amount), note: `${count(t.lastHour.count)} donations` },
+    { label: 'Volunteers', value: count(t.volunteers), note: `${count(t.campaigns)} campaign${t.campaigns === 1 ? '' : 's'}` },
+    { label: 'Anonymous', value: percent(t.anonymous, t.count), note: `${count(t.anonymous)} donors chose it` },
+  ]
+})
+
+const campaignRows = computed(() =>
+  (stats.value?.campaigns ?? []).map(c => ({
+    key: c.id ?? 'none',
+    label: c.name ?? 'no campaign',
+    hint: c.type ?? undefined,
+    value: c.amount,
+    display: cents(c.amount),
+    note: `${count(c.count)} donations`,
+  })))
+
+const amountRows = computed(() => {
+  const total = stats.value?.totals.count ?? 0
+  return (stats.value?.amountRanges ?? []).map(r => ({
+    key: String(r.min),
+    label: r.max === null ? `${shortEuro(r.min)} or more` : r.min === 0 ? `under ${shortEuro(r.max)}` : `${shortEuro(r.min)} – ${shortEuro(r.max - 1)}`,
+    value: r.count,
+    display: count(r.count),
+    note: `${percent(r.count, total)} · ${cents(r.amount)}`,
+  }))
+})
+
+function shareRows(groups: { key: string | null; count: number; amount: number }[], labels: Record<string, string>) {
+  const total = groups.reduce((sum, g) => sum + g.count, 0)
+  return [...groups]
+    .sort((a, b) => b.count - a.count)
+    .map(g => ({
+      key: g.key ?? 'none',
+      label: g.key === null ? 'not sent' : labels[g.key] ?? g.key,
+      hint: g.key !== null && labels[g.key] ? g.key : undefined,
+      value: g.count,
+      display: percent(g.count, total),
+      note: `${count(g.count)} · ${cents(g.amount)}`,
+    }))
+}
+const sourceRows = computed(() => shareRows(stats.value?.sources ?? [], SOURCE_LABELS))
+const methodRows = computed(() => shareRows(stats.value?.paymentMethods ?? [], METHOD_LABELS))
+
+const volunteerRows = computed(() =>
+  (stats.value?.volunteers.top ?? []).map((v, i) => ({
+    key: String(i),
+    label: `${i + 1}. ${v.name ?? 'no name'}`,
+    value: v.amount,
+    display: cents(v.amount),
+    note: `${count(v.count)} donations`,
+  })))
+
+const healthTiles = computed(() => {
+  const h = stats.value?.health
+  if (!h) return []
+  const accepted = h.answers.filter(a => a.key.startsWith('200')).reduce((sum, a) => sum + a.count, 0)
+  const rejected = h.signatures.filter(s => s.key !== 'valid').reduce((sum, s) => sum + s.count, 0)
+  return [
+    { label: 'Deliveries', value: count(h.deliveries.total), note: `${percent(accepted, h.deliveries.total)} answered 200` },
+    { label: 'Signature rejected', value: count(rejected), note: rejected ? 'see the deliveries table' : 'every one verified' },
+    { label: 'Duplicates', value: count(h.deliveries.duplicates), note: `${count(h.retried)} donations arrived more than once` },
+    { label: 'Average delay', value: seconds(h.lag.average), note: `95% within ${seconds(h.lag.p95)}` },
+    { label: 'Slowest delivery', value: seconds(h.lag.max), note: `${count(h.lag.overMinute)} took over a minute` },
+    { label: 'Test events', value: count(h.tests), note: 'left out of the money figures' },
+  ]
+})
+
+const answerRows = computed(() =>
+  (stats.value?.health.answers ?? []).map(a => ({ key: a.key, label: a.key, value: a.count, display: count(a.count) })))
+const signatureRows = computed(() =>
+  (stats.value?.health.signatures ?? []).map(s => ({
+    key: s.key,
+    label: SIGNATURE_LABELS[s.key] ?? s.key,
+    value: s.count,
+    display: count(s.count),
+  })))
 </script>
 
 <template>
@@ -129,7 +292,97 @@ function donorLabel(payload: Payload) {
 
     <p v-if="error" class="notice-error mt-6" role="alert">{{ error }}</p>
 
-    <div class="mt-10 grid gap-6 lg:grid-cols-2">
+    <section class="mt-10">
+      <h2 class="text-4xl">At a glance</h2>
+      <p class="mt-1 text-sm text-ink-soft">
+        Paid donations from the last {{ data?.retentionDays }} days (test events left out). Times are Amsterdam time.
+      </p>
+      <Mic2Tiles class="mt-4" :tiles="overviewTiles" />
+    </section>
+
+    <section class="panel mt-6 p-5 sm:p-8">
+      <h2 class="text-3xl">Over time</h2>
+      <p class="mb-5 mt-1 text-sm text-ink-soft">Hover a column for its numbers.</p>
+      <Mic2TimeChart
+        :points="timelinePoints"
+        :bar-legend="`Donations per ${bucketFormats.hourly ? 'hour' : 'day'}`"
+        :line-legend="`Amount raised so far (${cents(stats?.totals.gross)})`"
+        empty="No paid donations yet."
+      />
+    </section>
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">Campaigns</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">Amount raised per campaign.</p>
+        <Mic2Bars :rows="campaignRows" empty="No paid donations yet." />
+      </section>
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">Gift sizes</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">How many donations fall in each range.</p>
+        <Mic2Bars :rows="amountRows" tone="mustard" empty="No paid donations yet." />
+      </section>
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">Where donors came from</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">The <code class="font-mono text-xs">source</code> of each donation.</p>
+        <Mic2Bars :rows="sourceRows" empty="No paid donations yet." />
+      </section>
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">How they paid</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">The <code class="font-mono text-xs">paymentMethod</code> of each donation.</p>
+        <Mic2Bars :rows="methodRows" tone="burgundy" empty="No paid donations yet." />
+      </section>
+    </div>
+
+    <section class="panel mt-6 p-5 sm:p-8">
+      <h2 class="text-3xl">Top volunteers</h2>
+      <p class="mb-5 mt-1 text-sm text-ink-soft">By amount raised.</p>
+      <Mic2Bars :rows="volunteerRows" empty="No donations with a volunteer yet." />
+      <p v-if="stats?.volunteers.others.volunteers" class="mt-4 text-sm text-ink-muted">
+        {{ count(stats.volunteers.others.volunteers) }} other volunteers raised {{ cents(stats.volunteers.others.amount) }}
+        in {{ count(stats.volunteers.others.count) }} donations.
+      </p>
+      <p v-if="stats?.volunteers.withoutVolunteer.count" class="mt-1 text-sm text-ink-muted">
+        {{ count(stats.volunteers.withoutVolunteer.count) }} donations ({{ cents(stats.volunteers.withoutVolunteer.amount) }})
+        came without a volunteer.
+      </p>
+    </section>
+
+    <section class="mt-12">
+      <h2 class="text-4xl">Webhook health</h2>
+      <p class="mt-1 text-sm text-ink-soft">
+        Every delivery, test events included. Delay is from the donation's <code class="font-mono text-xs">occurredAt</code>
+        to the first delivery that reached this receiver.
+      </p>
+      <Mic2Tiles class="mt-4" :tiles="healthTiles" />
+    </section>
+
+    <section class="panel mt-6 p-5 sm:p-8">
+      <h2 class="text-3xl">Delivery delay</h2>
+      <p class="mb-5 mt-1 text-sm text-ink-soft">The slowest delivery in each {{ bucketFormats.hourly ? 'hour' : 'day' }}; hover for the average.</p>
+      <Mic2TimeChart
+        :points="lagPoints"
+        tone="burgundy"
+        :bar-legend="`Slowest delivery per ${bucketFormats.hourly ? 'hour' : 'day'} (highest ${seconds(stats?.health.lag.max)})`"
+        empty="No deliveries yet."
+      />
+    </section>
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">Answers sent</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">What this receiver answered, per delivery.</p>
+        <Mic2Bars :rows="answerRows" empty="No deliveries yet." />
+      </section>
+      <section class="panel p-5 sm:p-8">
+        <h2 class="text-3xl">Signatures</h2>
+        <p class="mb-5 mt-1 text-sm text-ink-soft">The HMAC check on each delivery.</p>
+        <Mic2Bars :rows="signatureRows" tone="burgundy" empty="No deliveries yet." />
+      </section>
+    </div>
+
+    <h2 class="mt-16 text-4xl">Receiver</h2>
+    <div class="mt-4 grid gap-6 lg:grid-cols-2">
       <section class="panel space-y-4 p-5 sm:p-8">
         <h2 class="text-3xl">Setup</h2>
         <div>
