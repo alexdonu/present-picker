@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Horizontal bars for the MIC2 page: one row per category, the longest bar being the largest value.
-export type Mic2BarRow = { key: string; label: string; hint?: string; value: number; display: string; note?: string }
+export type Mic2BarRow = { key: string; label: string; hint?: string; value: number; display: string; note?: string; sub?: string }
 
 const props = withDefaults(defineProps<{ rows: Mic2BarRow[]; tone?: 'forest' | 'burgundy' | 'mustard'; empty?: string }>(), {
   tone: 'forest',
@@ -27,6 +27,7 @@ const toneClass = computed(() => ({ forest: 'bg-forest', burgundy: 'bg-burgundy'
       <div class="mt-1 h-2.5 rounded-sm bg-highlight">
         <div class="h-full rounded-sm" :class="toneClass" :style="{ width: max ? `${(row.value / max) * 100}%` : '0' }" />
       </div>
+      <p v-if="row.sub" class="mt-1 text-xs text-ink-soft">{{ row.sub }}</p>
     </li>
     <li v-if="!rows.length" class="text-sm text-ink-soft">{{ empty }}</li>
   </ul>

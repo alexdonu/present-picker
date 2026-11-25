@@ -218,13 +218,13 @@ const campaignRows = computed(() =>
     hint: c.type ?? undefined,
     value: c.amount,
     display: cents(c.amount),
-    note: [
-      `${count(c.count)} donations`,
-      c.transferredInCount ? `incl. ${count(c.transferredInCount)} transferred in (${cents(c.transferredInAmount)})` : '',
+    note: `${count(c.count)} donations`,
+    sub: [
+      c.transferredInCount ? `Includes ${count(c.transferredInCount)} transferred in (${cents(c.transferredInAmount)}).` : '',
       c.transferredOutCount
-        ? `${count(c.transferredOutCount)} transferred to ${c.transferredOutTo ?? 'another campaign'} (${cents(c.transferredOutAmount)})`
+        ? `${count(c.transferredOutCount)} transferred to ${c.transferredOutTo ?? 'another campaign'} (${cents(c.transferredOutAmount)}).`
         : '',
-    ].filter(Boolean).join(' · '),
+    ].filter(Boolean).join(' ') || undefined,
   })))
 
 const amountRows = computed(() => {
