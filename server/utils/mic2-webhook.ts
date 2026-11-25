@@ -254,10 +254,32 @@ export function receiverStats(now = new Date()) {
   const groupBy = (path: string) => all<Group>(`SELECT json_extract(payload, '${path}') AS key, count(*) AS count,
       sum(${AMOUNT}) AS amount ${PAID} GROUP BY key ORDER BY amount DESC`)
 
-  const campaigns = all<{ id: string | null, name: string | null, type: string | null, count: number, amount: number }>(
-    `SELECT json_extract(payload, '$.campaign.id') AS id, max(json_extract(payload, '$.campaign.name')) AS name,
-      max(json_extract(payload, '$.campaign.type')) AS type, count(*) AS count, sum(${AMOUNT}) AS amount
-    ${PAID} GROUP BY id ORDER BY amount DESC`)
+  // A donation MIC2 moved to another campaign keeps a `transfer` block naming where it came from. The campaign it
+  // left stays in the list (with what moved out), so a new donation landing there again is still visible.
+  const campaigns = all<{
+    id: string | null, name: string | null, type: string | null, count: number, amount: number,
+    transferredInCount: number, transferredInAmount: number,
+    transferredOutCount: number, transferredOutAmount: number, transferredOutTo: string | null,
+  }>(
+    `WITH current AS (
+      SELECT json_extract(payload, '$.campaign.id') AS id, max(json_extract(payload, '$.campaign.name')) AS name,
+        max(json_extract(payload, '$.campaign.type')) AS type, count(*) AS count, sum(${AMOUNT}) AS amount,
+        sum(json_extract(payload, '$.transfer') IS NOT NULL) AS inCount,
+        coalesce(sum(CASE WHEN json_extract(payload, '$.transfer') IS NOT NULL THEN ${AMOUNT} END), 0) AS inAmount
+      ${PAID} GROUP BY 1
+    ), moved AS (
+      SELECT json_extract(payload, '$.transfer.fromCampaign.id') AS id, max(json_extract(payload, '$.transfer.fromCampaign.name')) AS name,
+        max(json_extract(payload, '$.transfer.fromCampaign.type')) AS type, count(*) AS outCount, sum(${AMOUNT}) AS outAmount,
+        max(json_extract(payload, '$.campaign.name')) AS outTo
+      ${PAID} AND json_extract(payload, '$.transfer.fromCampaign.id') IS NOT NULL GROUP BY 1
+    )
+    SELECT c.id, c.name, c.type, c.count, c.amount, c.inCount AS transferredInCount, c.inAmount AS transferredInAmount,
+      coalesce(m.outCount, 0) AS transferredOutCount, coalesce(m.outAmount, 0) AS transferredOutAmount, m.outTo AS transferredOutTo
+    FROM current c LEFT JOIN moved m ON m.id = c.id
+    UNION ALL
+    SELECT m.id, m.name, m.type, 0, 0, 0, 0, m.outCount, m.outAmount, m.outTo
+    FROM moved m WHERE m.id NOT IN (SELECT id FROM current WHERE id IS NOT NULL)
+    ORDER BY amount DESC, transferredOutAmount DESC`)
 
   const amountRanges = AMOUNT_RANGES.map((min, i) => ({ min, max: AMOUNT_RANGES[i + 1] ?? null, count: 0, amount: 0 }))
   for (const { v, n } of all<{ v: number, n: number }>(`SELECT ${AMOUNT} AS v, count(*) AS n ${PAID} GROUP BY v`)) {

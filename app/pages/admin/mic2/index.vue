@@ -18,6 +18,8 @@ type Payload = {
   volunteer?: { name?: string | null } | null
   donor?: { name?: string }
   isAnonymous?: boolean
+  // Set when MIC2 moved the donation to another campaign after it was sent.
+  transfer?: { at?: string; note?: string; fromCampaign?: { name?: string } | null; fromVolunteer?: { name?: string | null } | null }
 }
 type Overview = {
   mode: Mode
@@ -216,7 +218,13 @@ const campaignRows = computed(() =>
     hint: c.type ?? undefined,
     value: c.amount,
     display: cents(c.amount),
-    note: `${count(c.count)} donations`,
+    note: [
+      `${count(c.count)} donations`,
+      c.transferredInCount ? `incl. ${count(c.transferredInCount)} transferred in (${cents(c.transferredInAmount)})` : '',
+      c.transferredOutCount
+        ? `${count(c.transferredOutCount)} transferred to ${c.transferredOutTo ?? 'another campaign'} (${cents(c.transferredOutAmount)})`
+        : '',
+    ].filter(Boolean).join(' · '),
   })))
 
 const amountRows = computed(() => {
@@ -457,6 +465,9 @@ const signatureRows = computed(() =>
               <td class="py-2 pr-4">
                 {{ item.payload.campaign?.name }} <span class="text-ink-soft">({{ item.payload.campaign?.type }})</span>
                 <span v-if="item.payload.personalCampaign" class="block text-ink-soft">{{ item.payload.personalCampaign.title }}</span>
+                <span v-if="item.payload.transfer" class="mono-label block text-burgundy" :title="item.payload.transfer.note">
+                  transferred from {{ item.payload.transfer.fromCampaign?.name ?? 'another campaign' }}
+                </span>
               </td>
               <td class="py-2 pr-4">
                 {{ donorLabel(item.payload) }}
@@ -464,6 +475,9 @@ const signatureRows = computed(() =>
               </td>
               <td class="py-2 pr-4">
                 {{ item.payload.volunteer ? item.payload.volunteer.name ?? 'no name' : '—' }}
+                <span v-if="item.payload.transfer?.fromVolunteer" class="block text-ink-soft">
+                  was {{ item.payload.transfer.fromVolunteer.name ?? 'a QR board' }}
+                </span>
               </td>
               <td class="py-2 pr-4">
                 <details>
